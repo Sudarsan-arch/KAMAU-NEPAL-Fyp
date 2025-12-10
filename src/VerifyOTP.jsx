@@ -1,0 +1,157 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Clock, CheckCircle } from 'lucide-react';
+
+const VerifyOTP = () => {
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [timer, setTimer] = useState(60);
+  const [isVerified, setIsVerified] = useState(false);
+  const inputRefs = useRef([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (timer > 0 && !isVerified) {
+      const interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [timer, isVerified]);
+
+  const handleChange = (index, value) => {
+    if (value.length <= 1 && /^\d*$/.test(value)) {
+      const newOtp = [...otp];
+      newOtp[index] = value;
+      setOtp(newOtp);
+
+      // Auto-focus next input
+      if (value && index < 5) {
+        inputRefs.current[index + 1].focus();
+      }
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      inputRefs.current[index - 1].focus();
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const otpCode = otp.join('');
+    console.log('Verifying OTP:', otpCode);
+    
+    if (otpCode === '123456') { // Demo code
+      setIsVerified(true);
+      setTimeout(() => navigate('/dashboard'), 2000);
+    } else {
+      alert('Invalid OTP. Try 123456 for demo.');
+    }
+  };
+
+  const handleResend = () => {
+    setTimer(60);
+    alert('New OTP sent to your email!');
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="p-8">
+          {/* Back Button */}
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 mb-6"
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+
+          {/* Logo */}
+          <div className="flex items-center gap-2 mb-8">
+            <div className="flex h-10 w-10 items-center justify-center rounded bg-teal-600 text-white font-bold">
+              ≡
+            </div>
+            <span className="text-xl font-bold text-teal-900">Kamau Nepal</span>
+          </div>
+
+          <div className="text-center mb-8">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-100 mb-4">
+              <div className="text-2xl font-bold text-teal-600">🔒</div>
+            </div>
+            <h1 className="text-2xl font-bold text-teal-900">Verify OTP</h1>
+            <p className="mt-2 text-gray-600">
+              Enter the 6-digit code sent to your email
+            </p>
+          </div>
+
+          {!isVerified ? (
+            <>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="flex justify-center gap-2 mb-6">
+                  {otp.map((digit, index) => (
+                    <input
+                      key={index}
+                      ref={(el) => (inputRefs.current[index] = el)}
+                      type="text"
+                      value={digit}
+                      onChange={(e) => handleChange(index, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(index, e)}
+                      maxLength={1}
+                      className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none"
+                    />
+                  ))}
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white font-medium py-3 px-4 rounded-lg hover:opacity-90 transition"
+                >
+                  Verify OTP
+                </button>
+              </form>
+
+              <div className="mt-6 text-center">
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                  <Clock size={16} />
+                  <span>Resend code in: {timer}s</span>
+                </div>
+                <button
+                  onClick={handleResend}
+                  disabled={timer > 0}
+                  className={`mt-2 text-sm font-medium ${
+                    timer > 0 ? 'text-gray-400' : 'text-teal-600 hover:text-teal-700'
+                  }`}
+                >
+                  Didn't receive code? Resend
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Verified Successfully!</h2>
+              <p className="mt-2 text-gray-600">
+                Redirecting to your dashboard...
+              </p>
+            </div>
+          )}
+
+          <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+            <p className="text-sm text-gray-600">
+              Need help?{' '}
+              <Link to="/contact" className="text-teal-600 font-medium hover:text-teal-700">
+                Contact Support
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default VerifyOTP;
