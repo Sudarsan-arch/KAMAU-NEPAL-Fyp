@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 
+
 const SignupForm = () => {
   const [formData, setFormData] = useState({
     firstName: '',
@@ -54,8 +55,15 @@ const SignupForm = () => {
 
       console.log('Signup response:', response.data);
 
-      // Navigate to OTP verification page and pass email
-      navigate('/verify-otp', { state: { email: formData.email } });
+      // Save user data for profile
+      const fullName = `${formData.firstName} ${formData.lastName}`;
+      localStorage.setItem('userId', response.data.userId);
+      localStorage.setItem('userName', fullName);
+      localStorage.setItem('userEmail', formData.email);
+      localStorage.setItem('userLocation', formData.address);
+
+      // Navigate to OTP verification page
+      navigate('/verify-otp');
     } catch (err) {
       if (err.response && err.response.data.message) {
         alert(err.response.data.message);
@@ -88,9 +96,7 @@ const SignupForm = () => {
               {/* Name fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    First Name
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                   <div className="relative">
                     <User className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
                     <input
@@ -105,9 +111,7 @@ const SignupForm = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Last Name
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
                   <div className="relative">
                     <User className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
                     <input
@@ -125,9 +129,7 @@ const SignupForm = () => {
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
                   <input
@@ -145,9 +147,7 @@ const SignupForm = () => {
               {/* Passwords */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
                     <input
@@ -162,9 +162,7 @@ const SignupForm = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirm Password
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
                     <input
@@ -182,9 +180,7 @@ const SignupForm = () => {
 
               {/* Address */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                 <input
                   type="text"
                   name="address"
@@ -236,7 +232,7 @@ const SignupForm = () => {
             </div>
           </div>
 
-          {/* Right Side Hero / Illustration */}
+          {/* Right Side Hero */}
           <div className="lg:w-1/2 bg-gradient-to-br from-orange-400 to-orange-500 p-8 md:p-12 flex items-center justify-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-10">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full translate-x-32 -translate-y-32"></div>
