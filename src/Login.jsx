@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import axios from "axios";
 
+
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "", rememberMe: false });
   const [message, setMessage] = useState("");
@@ -28,16 +29,45 @@ const Login = () => {
         password: formData.password
       });
 
-      // Save JWT token
-      localStorage.setItem("token", response.data.token);
+      // Backend returns { token, userId, name, verified }
+      const { token, userId, name, verified } = response.data;
 
-      setMessage("Login successful!");
-      navigate("/dashboard");
+      if (!token) {
+        setMessage("Login failed. No token received.");
+        return;
+      }
+
+      // Save JWT token and user data
+      localStorage.setItem("token", token);
+      localStorage.setItem("userId", userId);
+      localStorage.setItem("userName", name);
+
+      if (!verified) {
+        // If user is not verified, redirect to OTP page
+        navigate("/verify-otp");
+      } else {
+        // Navigate to dashboard
+        navigate("/dashboard");
+      }
+
     } catch (err) {
-      if (err.response && err.response.data?.message) {
+      console.error("Login error details:", {
+        status: err.response?.status,
+        message: err.response?.data?.message,
+        error: err.message,
+        data: err.response?.data
+      });
+      
+      if (err.message === "Network Error" || !err.response) {
+        setMessage("Cannot connect to server. Make sure backend is running on localhost:5000");
+      } else if (err.response?.status === 404) {
+        setMessage("User not found. Please sign up first.");
+      } else if (err.response?.status === 401) {
+        setMessage("Email not verified. Please verify OTP first.");
+      } else if (err.response?.data?.message) {
         setMessage(err.response.data.message);
       } else {
-        setMessage("Server error. Try again.");
+        setMessage("Server error. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -49,6 +79,7 @@ const Login = () => {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
         <h1 className="text-3xl font-bold text-teal-900 mb-6 text-center">Login</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
             <div className="relative">
@@ -65,6 +96,7 @@ const Login = () => {
             </div>
           </div>
 
+          {/* Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
             <div className="relative">
@@ -81,6 +113,7 @@ const Login = () => {
             </div>
           </div>
 
+          {/* Remember me & forgot password */}
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
@@ -103,6 +136,7 @@ const Login = () => {
             </Link>
           </div>
 
+          {/* Submit */}
           <button
             type="submit"
             disabled={loading}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 
@@ -10,8 +10,9 @@ const VerifyOTP = () => {
   const [loading, setLoading] = useState(false);
   const inputRefs = useRef([]);
   const navigate = useNavigate();
-  const location = useLocation();
-  const email = location.state?.email; // Email from signup
+
+  // Get userId from localStorage (saved in signup)
+  const userId = localStorage.getItem('userId');
 
   useEffect(() => {
     if (timer > 0 && !isVerified) {
@@ -35,45 +36,61 @@ const VerifyOTP = () => {
     }
   };
 
-  // Confirm button submits OTP
   const handleSubmit = async (e) => {
     e.preventDefault();
     const otpCode = otp.join('');
 
-    if (!email) {
-      alert('Email not found. Please signup again.');
+    if (!userId) {
+      alert('User not found. Please signup again.');
       navigate('/signup');
+      return;
+    }
+
+    if (otpCode.length !== 6) {
+      alert('Please enter all 6 digits of the OTP');
+      return;
+    }
+
+    if (otpCode.includes('')) {
+      alert('Please fill in all OTP fields');
       return;
     }
 
     try {
       setLoading(true);
       const response = await axios.post('http://localhost:5000/api/users/verify-otp', {
-        email,
+        userId,
         otp: otpCode,
       });
 
-      if (response.data.success) {
+      if (response.data.token) {
+        // Save JWT token
+        localStorage.setItem('token', response.data.token);
         setIsVerified(true);
-        navigate('/dashboard'); // Navigate to dashboard immediately
+
+        // Navigate to dashboard after short delay
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
       } else {
         alert(response.data.message || 'Invalid OTP');
       }
     } catch (err) {
-      alert('Error verifying OTP. Try again.');
+      console.error('OTP verification error:', err);
+      alert(err.response?.data?.message || 'Error verifying OTP. Try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleResend = async () => {
-    if (!email) return alert('Email not found.');
+    if (!userId) return alert('User not found. Please signup again.');
     setTimer(60);
     try {
-      await axios.post('http://localhost:5000/api/users/resend-otp', { email });
-      alert('New OTP sent to your email!');
+      await axios.post('http://localhost:5000/api/users/resend-otp', { userId });
+      alert('New OTP sent!');
     } catch (err) {
-      alert('Failed to resend OTP. Try again.');
+      alert(err.response?.data?.message || 'Failed to resend OTP. Try again.');
     }
   };
 

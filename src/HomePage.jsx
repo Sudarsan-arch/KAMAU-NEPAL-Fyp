@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Menu, X, Search, Star, MapPin, CheckCircle2, 
   MoreHorizontal, Twitter, Linkedin, Github, 
   Heart, Zap, ShieldCheck, ArrowRight, Briefcase, UserCircle 
 } from 'lucide-react';
+import Logo from './Logo';
 
 // --- Internal Helper: Button ---
 const Button = ({ 
@@ -31,30 +32,30 @@ const Button = ({
   );
 };
 
-// --- Internal Helper: Logo ---
-const Logo = ({ className = "" }) => (
-  <Link to="/" className={`flex flex-col items-start leading-none ${className}`}>
-    <span className="text-2xl font-black tracking-tighter text-slate-900 uppercase">KAMAU</span>
-    <div className="flex items-center gap-1 -mt-0.5">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-slate-900">
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
-        <path d="M12 7V17M15 9H11C10.4477 9 10 9.44772 10 10V10C10 10.5523 10.4477 11 11 11H13C13.5523 11 14 11.4477 14 12V12C14 12.5523 13.5523 13 13 13H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        <path d="M2 12H5M3 15H5M3 9H5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-      </svg>
-      <span className="text-lg font-extrabold text-orange-500 uppercase tracking-tight">NEPAL</span>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-900 animate-[spin_8s_linear_infinite]">
-        <path d="M12.22 2h-.44a2 2 0 0 0-2 2 2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 0-2-2h-.44a2 2 0 0 0-2 2 2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 0-2-2" />
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-      </svg>
-    </div>
-  </Link>
-);
-
 const HomePage = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
+
+  const userName = localStorage.getItem('userName') || 'Professional User';
+  const userProfileImage = localStorage.getItem('userProfileImage');
+
+  const getInitials = (name) => {
+    return (
+      name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2) || 'UN'
+    );
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    setIsLoggedIn(!!token);
+  }, []);
 
   const services = [
     { name: "Plumber", icon: "🔧", category: "Construction" },
@@ -91,12 +92,35 @@ const HomePage = () => {
               ))}
               <div className="h-6 w-px bg-slate-200 mx-2" />
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Log In</Button>
-                <Button variant="outline" size="sm" onClick={() => navigate('/signup')}>Sign Up</Button>
-                <Button variant="secondary" size="sm" className="gap-2" onClick={() => navigate('/professional-registration')
+                {isLoggedIn ? (
+                  <button
+                    onClick={() => navigate('/dashboard')}
+                    className="flex items-center gap-3 bg-white border border-slate-100 px-3 py-1.5 rounded-xl shadow-sm hover:shadow-md"
+                  >
+                    <div className="h-8 w-8 rounded-full overflow-hidden">
+                      {userProfileImage ? (
+                        <img src={userProfileImage} alt={userName} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full bg-teal-600 flex items-center justify-center text-white font-bold">
+                          {getInitials(userName)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <div className="text-xs font-bold text-slate-900 leading-none">{userName}</div>
+                      <div className="text-[11px] text-slate-400">Dashboard</div>
+                    </div>
+                  </button>
+                ) : (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Log In</Button>
+                    <Button variant="outline" size="sm" onClick={() => navigate('/signup')}>Sign Up</Button>
+                    <Button variant="secondary" size="sm" className="gap-2" onClick={() => navigate('/professional-registration')
 }>
-                  <Briefcase size={16} /> Register as Professional
-                </Button>
+                      <Briefcase size={16} /> Register as Professional
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
             <div className="md:hidden flex items-center">
@@ -114,9 +138,15 @@ const HomePage = () => {
               </Link>
             ))}
             <div className="flex flex-col gap-3 pt-2">
-              <Button className="w-full" variant="outline" onClick={() => navigate('/login')}>Log In</Button>
-              <Button className="w-full" onClick={() => navigate('/signup')}>Sign Up</Button>
-              <Button className="w-full" variant="secondary" onClick={() => navigate('/register-pro')}>Register as Professional</Button>
+              {isLoggedIn ? (
+                <Button className="w-full" variant="secondary" onClick={() => { navigate('/dashboard'); setMobileMenuOpen(false); }}>User Dashboard</Button>
+              ) : (
+                <>
+                  <Button className="w-full" variant="outline" onClick={() => navigate('/login')}>Log In</Button>
+                  <Button className="w-full" onClick={() => navigate('/signup')}>Sign Up</Button>
+                  <Button className="w-full" variant="secondary" onClick={() => navigate('/professional-registration')}>Register as Professional</Button>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -253,7 +283,7 @@ const HomePage = () => {
               <p className="max-w-xs text-slate-400 font-medium leading-relaxed mb-8">Empowering Nepal's workforce by connecting skilled professionals with life-changing opportunities.</p>
               <div className="flex gap-4">
                 {[Twitter, Linkedin, Github].map((Icon, i) => (
-                  <a key={i} href="#" className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center hover:bg-teal-600 hover:text-white transition-all"><Icon size={20} /></a>
+                  <button key={i} className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center hover:bg-teal-600 hover:text-white transition-all"><Icon size={20} /></button>
                 ))}
               </div>
             </div>
