@@ -18,24 +18,84 @@ export default function UserProfile({ onBack }) {
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    // Load user data from localStorage
-    const userName = localStorage.getItem("userName") || ""
-    const userEmail = localStorage.getItem("userEmail") || ""
-    const userPhone = localStorage.getItem("userPhone") || ""
-    const userLocation = localStorage.getItem("userLocation") || ""
-    const userImage = localStorage.getItem("userProfileImage")
+    // Load user data from database and localStorage
+    const loadUserProfile = async () => {
+      const userId = localStorage.getItem("userId")
+      
+      if (!userId) {
+        console.log("No user ID found, loading from localStorage")
+        // Fallback to localStorage if no userId
+        const userName = localStorage.getItem("userName") || ""
+        const userEmail = localStorage.getItem("userEmail") || ""
+        const userPhone = localStorage.getItem("userPhone") || ""
+        const userLocation = localStorage.getItem("userLocation") || ""
+        const userImage = localStorage.getItem("userProfileImage")
 
-    setFormData({
-      username: userName,
-      fullName: userName,
-      email: userEmail,
-      phone: userPhone,
-      location: userLocation,
-    })
+        setFormData({
+          username: userName,
+          fullName: userName,
+          email: userEmail,
+          phone: userPhone,
+          location: userLocation,
+        })
 
-    if (userImage) {
-      setProfileImage(userImage)
+        if (userImage) {
+          setProfileImage(userImage)
+        }
+        return
+      }
+
+      try {
+        // Try to fetch from database
+        const response = await axios.get(
+          `http://localhost:5000/api/users/${userId}/profile`
+        )
+        
+        if (response.data.user) {
+          const user = response.data.user
+          setFormData({
+            username: user.username || user.name || "",
+            fullName: user.name || "",
+            email: user.email || "",
+            phone: user.phone || "",
+            location: user.location || "",
+          })
+
+          if (user.profileImage) {
+            setProfileImage(user.profileImage)
+            localStorage.setItem("userProfileImage", user.profileImage)
+          }
+
+          // Update localStorage with database values
+          localStorage.setItem("userName", user.name || "")
+          localStorage.setItem("userEmail", user.email || "")
+          localStorage.setItem("userPhone", user.phone || "")
+          localStorage.setItem("userLocation", user.location || "")
+        }
+      } catch (error) {
+        console.error("Error loading profile from database:", error)
+        // Fallback to localStorage
+        const userName = localStorage.getItem("userName") || ""
+        const userEmail = localStorage.getItem("userEmail") || ""
+        const userPhone = localStorage.getItem("userPhone") || ""
+        const userLocation = localStorage.getItem("userLocation") || ""
+        const userImage = localStorage.getItem("userProfileImage")
+
+        setFormData({
+          username: userName,
+          fullName: userName,
+          email: userEmail,
+          phone: userPhone,
+          location: userLocation,
+        })
+
+        if (userImage) {
+          setProfileImage(userImage)
+        }
+      }
     }
+
+    loadUserProfile()
   }, [])
 
   const handleImageUpload = (e) => {
@@ -99,6 +159,17 @@ export default function UserProfile({ onBack }) {
     try {
       const userId = localStorage.getItem("userId")
       
+      if (!userId) {
+        throw new Error("User ID not found. Please login again.")
+      }
+
+      console.log("Saving profile for userId:", userId);
+      console.log("Profile image present:", !!profileImage);
+      if (profileImage) {
+        console.log("Profile image type:", profileImage.startsWith("data:") ? "Base64" : "Other");
+        console.log("Profile image size:", profileImage.length, "characters");
+      }
+      
       // Prepare form data for multipart upload
       const formDataToSend = new FormData()
       formDataToSend.append("fullName", formData.fullName)
@@ -106,15 +177,14 @@ export default function UserProfile({ onBack }) {
       formDataToSend.append("phone", formData.phone)
       formDataToSend.append("location", formData.location)
       
-      // Add profile image if it's a new file (not a data URL from localStorage)
+      // Add profile image if it's a new file (base64 string)
       if (profileImage && profileImage.startsWith("data:")) {
-        // Convert base64 to blob
-        const response = await fetch(profileImage)
-        const blob = await response.blob()
-        formDataToSend.append("profileImage", blob, "profile.jpg")
+        console.log("Appending profile image to form data");
+        formDataToSend.append("profileImage", profileImage)
       }
 
       // Send to backend
+      console.log("Sending profile update request...");
       const apiResponse = await axios.put(
         `http://localhost:5000/api/users/${userId}/profile`,
         formDataToSend,
@@ -125,6 +195,8 @@ export default function UserProfile({ onBack }) {
         }
       )
 
+      console.log("Profile update response:", apiResponse.data)
+
       // Save to localStorage as backup
       localStorage.setItem("userName", formData.fullName)
       localStorage.setItem("userEmail", formData.email)
@@ -133,14 +205,15 @@ export default function UserProfile({ onBack }) {
 
       if (profileImage) {
         localStorage.setItem("userProfileImage", profileImage)
+        console.log("Profile image saved to localStorage");
       }
 
-      setSuccessMessage("Profile updated successfully!")
+      setSuccessMessage("Profile updated successfully and saved to database!")
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (error) {
       console.error("Error saving profile:", error)
       setErrors({ 
-        general: error.response?.data?.message || "Failed to save profile. Please try again." 
+        general: error.response?.data?.message || error.message || "Failed to save profile. Please try again." 
       })
     } finally {
       setIsLoading(false)

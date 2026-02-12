@@ -1,10 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './HomePage';
-import SignupForm from './SignupForm';
-import Login from './Login';
-import ForgotPassword from './ForgotPassword';
-import VerifyOTP from './VerifyOTP';
+import SignupForm from './authentication/SignupForm';
+import Login from './authentication/Login';
+import ForgotPassword from './authentication/ForgotPassword';
+import VerifyOTP from './authentication/VerifyOTP';
 import ProfessionalRegistration from './serviceprovider/ProfessionalRegistration';
 import Dashboard from './Dashboard';
 import UserProfile from './user-profile';

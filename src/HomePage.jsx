@@ -6,6 +6,7 @@ import {
   Heart, Zap, ShieldCheck, ArrowRight, Briefcase, UserCircle 
 } from 'lucide-react';
 import Logo from './Logo';
+import axios from 'axios';
 
 // --- Internal Helper: Button ---
 const Button = ({ 
@@ -36,6 +37,8 @@ const HomePage = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [professionals, setProfessionals] = useState([]);
+  const [loadingProfessionals, setLoadingProfessionals] = useState(true);
   const navigate = useNavigate();
 
   const userName = localStorage.getItem('userName') || 'Professional User';
@@ -55,6 +58,46 @@ const HomePage = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
+  }, []);
+
+  // Fetch verified professionals
+  useEffect(() => {
+    const fetchProfessionals = async () => {
+      try {
+        setLoadingProfessionals(true);
+        const response = await axios.get('http://localhost:5000/api/professionals/', {
+          params: { 
+            verificationStatus: 'verified',
+            limit: 4 
+          }
+        });
+        
+        if (response.data.success && response.data.data) {
+          // Format professionals data for display
+          const formattedProfessionals = response.data.data.map(prof => ({
+            _id: prof._id,
+            name: `${prof.firstName} ${prof.lastName}`,
+            title: prof.serviceCategory.charAt(0).toUpperCase() + prof.serviceCategory.slice(1),
+            location: prof.serviceArea.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) + ', Nepal',
+            rating: prof.rating || 4.5,
+            reviews: prof.totalReviews || 0,
+            verified: prof.verificationStatus === 'verified',
+            avatar: "👨‍💼",
+            hourlyRate: `रू ${prof.hourlyWage}/hr`,
+            profileImage: prof.profileImage
+          }));
+          setProfessionals(formattedProfessionals);
+        }
+      } catch (error) {
+        console.error('Error fetching professionals:', error);
+        // Fallback to empty state if API fails
+        setProfessionals([]);
+      } finally {
+        setLoadingProfessionals(false);
+      }
+    };
+
+    fetchProfessionals();
   }, []);
 
   const services = [
@@ -244,31 +287,47 @@ const HomePage = () => {
               <Button variant="outline" className="hidden md:flex gap-2">View All Experts <MoreHorizontal size={18} /></Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {providers.map((p, idx) => (
-                <div key={idx} className="group bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 hover:shadow-2xl transition-all duration-300 flex flex-col relative overflow-hidden h-full">
-                  <div className="absolute top-0 left-0 w-full h-2 bg-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center text-4xl shadow-inner">{p.avatar}</div>
-                    {p.verified && <div className="bg-teal-50 text-teal-600 p-1.5 rounded-xl"><CheckCircle2 size={18} /></div>}
-                  </div>
-                  <div className="mb-4">
-                    <h3 className="text-xl font-bold text-slate-900 group-hover:text-teal-600 transition-colors">{p.name}</h3>
-                    <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest mt-1">{p.title}</p>
-                  </div>
-                  <div className="space-y-3 mb-8">
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-0.5">
-                        {[...Array(5)].map((_, i) => <Star key={i} size={14} className={i < Math.floor(p.rating) ? "fill-orange-400 text-orange-400" : "text-slate-200"} />)}
-                      </div>
-                      <span className="text-sm font-black">{p.rating}</span>
-                      <span className="text-sm text-slate-400">({p.reviews})</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm font-medium text-slate-500"><MapPin size={16} className="text-teal-500" /> {p.location}</div>
-                    <div className="text-lg font-black text-slate-900">{p.hourlyRate}</div>
-                  </div>
-                  <Button variant="secondary" className="w-full mt-auto rounded-2xl">View Profile</Button>
+              {loadingProfessionals ? (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-slate-500">Loading professionals...</p>
                 </div>
-              ))}
+              ) : professionals.length > 0 ? (
+                professionals.map((p, idx) => (
+                  <div key={idx} className="group bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 hover:shadow-2xl transition-all duration-300 flex flex-col relative overflow-hidden h-full">
+                    <div className="absolute top-0 left-0 w-full h-2 bg-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center text-4xl shadow-inner overflow-hidden">
+                        {p.profileImage ? (
+                          <img src={p.profileImage} alt={p.name} className="w-full h-full object-cover" />
+                        ) : (
+                          p.avatar
+                        )}
+                      </div>
+                      {p.verified && <div className="bg-teal-50 text-teal-600 p-1.5 rounded-xl"><CheckCircle2 size={18} /></div>}
+                    </div>
+                    <div className="mb-4">
+                      <h3 className="text-xl font-bold text-slate-900 group-hover:text-teal-600 transition-colors">{p.name}</h3>
+                      <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest mt-1">{p.title}</p>
+                    </div>
+                    <div className="space-y-3 mb-8">
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-0.5">
+                          {[...Array(5)].map((_, i) => <Star key={i} size={14} className={i < Math.floor(p.rating) ? "fill-orange-400 text-orange-400" : "text-slate-200"} />)}
+                        </div>
+                        <span className="text-sm font-black">{p.rating}</span>
+                        <span className="text-sm text-slate-400">({p.reviews})</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-500"><MapPin size={16} className="text-teal-500" /> {p.location}</div>
+                      <div className="text-lg font-black text-slate-900">{p.hourlyRate}</div>
+                    </div>
+                    <Button variant="secondary" className="w-full mt-auto rounded-2xl">View Profile</Button>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-slate-500">No verified professionals yet. Be the first to register!</p>
+                </div>
+              )}
             </div>
           </div>
         </section>
