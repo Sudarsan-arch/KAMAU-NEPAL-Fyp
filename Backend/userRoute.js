@@ -108,6 +108,13 @@ router.post("/verify-otp", async (req, res) => {
       return res.status(400).json({ message: "OTP expired" });
     }
 
+    // Mark user as verified and clear OTP fields
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
+    console.log("User verified and saved:", user._id);
+
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET || "your-secret-key",
@@ -117,6 +124,7 @@ router.post("/verify-otp", async (req, res) => {
     res.json({
       message: "OTP verified successfully",
       token,
+      isVerified: true,
     });
 
   } catch (err) {
@@ -193,7 +201,12 @@ router.post("/login", async (req, res) => {
 router.put("/:userId/profile", upload.single("profileImage"), async (req, res) => {
   try {
     const { userId } = req.params;
-    const { fullName, email, phone, location, username } = req.body;
+    const { fullName, email, phone, location, username, profileImage } = req.body;
+
+    console.log("Profile update request for userId:", userId);
+    console.log("Request body fields:", { fullName, email, phone, location, username });
+    console.log("Profile image provided:", !!profileImage);
+    console.log("File uploaded:", !!req.file);
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -204,17 +217,76 @@ router.put("/:userId/profile", upload.single("profileImage"), async (req, res) =
     if (location) user.location = location;
     if (username) user.username = username;
 
-    if (req.file) {
-      // store relative path to uploads
-      user.profileImage = `/uploads/${req.file.filename}`;
+    // Handle profile image - either from base64 or file upload
+    if (profileImage && profileImage.startsWith("data:")) {
+      console.log("Saving profile image from base64 (length:", profileImage.length, ")");
+      // Save base64 image directly
+      user.profileImage = profileImage;
+    } else if (req.file) {
+      console.log("Saving profile image from file upload");
+      // Convert uploaded file to base64
+      const fs = require("fs");
+      const imagePath = req.file.path;
+      const imageData = fs.readFileSync(imagePath);
+      const base64Image = `data:${req.file.mimetype};base64,${imageData.toString("base64")}`;
+      user.profileImage = base64Image;
+      console.log("Image converted to base64 (length:", base64Image.length, ")");
+      
+      // Optionally delete the uploaded file after converting to base64
+      fs.unlinkSync(imagePath);
+      console.log("Temporary file deleted");
+    } else {
+      console.log("No profile image data provided, keeping existing image");
     }
 
     await user.save();
+    console.log("User profile saved successfully");
 
-    res.json({ message: "Profile updated", user });
+    res.json({ 
+      message: "Profile updated successfully", 
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        location: user.location,
+        hasProfileImage: !!user.profileImage,
+      }
+    });
   } catch (err) {
     console.error("Profile update error:", err);
-    res.status(500).json({ message: "Failed to update profile" });
+    res.status(500).json({ message: "Failed to update profile: " + err.message });
+  }
+});
+
+/* =========================
+   GET USER PROFILE
+========================= */
+router.get("/:userId/profile", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({
+      message: "User profile retrieved",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        location: user.location,
+        username: user.username,
+        profileImage: user.profileImage,
+        address: user.address,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error("Get profile error:", err);
+    res.status(500).json({ message: "Failed to fetch profile" });
   }
 });
 

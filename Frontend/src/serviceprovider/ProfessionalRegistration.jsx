@@ -184,18 +184,35 @@ const ProfessionalRegistration = () => {
     }
     
     documents.forEach((doc, index) => {
-      submitData.append(`document_${index}`, doc.file)
+      submitData.append('documents', doc.file)
     })
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
+      console.log('Submitting form with data:', formData);
+      console.log('Number of documents:', documents.length);
+      console.log('Has profile image:', !!profileImage);
+
+      const response = await fetch('http://localhost:5001/api/professionals/register', {
+        method: 'POST',
+        body: submitData
+      })
+
+      const data = await response.json()
+      console.log('Response status:', response.status);
+      console.log('Response data:', data);
+
+      if (!response.ok) {
+        alert(data.message || 'Registration failed. Please try again.')
+        setIsSubmitting(false)
+        return
+      }
+
       setIsSubmitting(false)
       setSubmitted(true)
       window.scrollTo({ top: 0, behavior: "smooth" })
     } catch (error) {
       console.error('Registration error:', error)
-      alert("Registration failed. Please try again.")
+      alert("Registration failed. Please try again. Check console for details.")
       setIsSubmitting(false)
     }
   }
@@ -241,7 +258,7 @@ const ProfessionalRegistration = () => {
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-4">Registration Complete!</h2>
           <p className="text-slate-500 mb-8 sm:mb-10 font-medium text-sm sm:text-base">
-            Your profile and documents have been submitted for review. Verification usually takes 24-48 hours.
+            Your profile is now active and visible on our platform. You can start receiving job requests immediately!
           </p>
           <button
             className="w-full py-3 sm:py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl sm:rounded-2xl transition-colors text-sm sm:text-base"

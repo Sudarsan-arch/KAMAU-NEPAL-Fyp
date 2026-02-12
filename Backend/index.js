@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 import userRoutes from "./userRoute.js";
+import professionalRoute from "./professionalRoute.js";
+import adminRoute from "./adminRoute.js";
+import authRoute from "./authRoute.js";
 import path from "path";
 
 
@@ -18,7 +21,8 @@ app.use(cors({
   origin: "http://localhost:3000",
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 /* ===============================
    TEST ROUTE
@@ -31,6 +35,9 @@ app.get("/", (req, res) => {
    ROUTES
 ================================ */
 app.use("/api/users", userRoutes);
+app.use("/api/professionals", professionalRoute);
+app.use("/api/admin", adminRoute);
+app.use("/api/auth", authRoute);
 
 // Serve uploaded images
 app.use('/uploads', express.static(path.join(path.resolve(), 'Backend', 'uploads')));
