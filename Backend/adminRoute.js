@@ -11,10 +11,16 @@ import {
   rejectProfessional,
   getAnalyticsData,
   searchProfessionals,
-  exportData
+  exportData,
+  broadcastNotification,
 } from './controllers/adminController.js';
+import { verifyAdminToken, checkAdminRole } from './adminAuthMiddleware.js';
 
 const router = express.Router();
+
+// Apply admin verification middleware to all routes
+router.use(verifyAdminToken);
+router.use(checkAdminRole);
 
 /**
  * Admin Routes
@@ -62,5 +68,10 @@ router.get('/analytics/status', getStatusDistribution);
 // Export
 // GET /api/admin/export?format=json&status=verified
 router.get('/export', exportData);
+
+// Broadcast Notification
+// POST /api/admin/broadcast
+// Body: { recipient: 'all'|'users'|'professionals', title, message }
+router.post('/broadcast', broadcastNotification);
 
 export default router;

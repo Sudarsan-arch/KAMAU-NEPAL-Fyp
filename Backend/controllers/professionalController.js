@@ -1,6 +1,8 @@
 import ProfessionalModel from '../models/professionalModel.js';
+import NotificationModel from '../models/notificationModel.js';
 import fs from 'fs';
 import path from 'path';
+import { createNotification } from './notificationController.js';
 
 // Register a new professional service provider
 export const registerProfessional = async (req, res) => {
@@ -8,7 +10,7 @@ export const registerProfessional = async (req, res) => {
     console.log('=== Professional Registration Started ===');
     console.log('Request body:', req.body);
     console.log('Request files:', req.files ? Object.keys(req.files) : 'No files');
-    
+
     const {
       firstName,
       lastName,
@@ -18,26 +20,47 @@ export const registerProfessional = async (req, res) => {
       serviceCategory,
       serviceArea,
       hourlyWage,
-      bio
+      bio,
+      latitude,
+      longitude,
+      formattedAddress,
+      userId: bodyUserId
     } = req.body;
 
+    // Use userId from authenticated user if available, otherwise from body
+    const userId = req.user?.id || bodyUserId;
+
     // Validate required fields
-    if (!firstName || !lastName || !username || !email || !phone || !serviceCategory || !serviceArea || !hourlyWage) {
+    if (!firstName || !lastName || !username || !email || !phone || !serviceCategory || !serviceArea) {
       console.log('❌ Missing required fields');
-      return res.status(400).json({ 
-        success: false, 
+      console.log('Received:', { firstName, lastName, username, email, phone, serviceCategory, serviceArea });
+      return res.status(400).json({
+        success: false,
         message: 'All required fields must be provided',
         received: { firstName, lastName, username, email, phone, serviceCategory, serviceArea, hourlyWage }
       });
+    }
+
+    // Check if user already has a professional profile
+    if (userId) {
+      const existingProfile = await ProfessionalModel.findOne({ userId });
+      if (existingProfile) {
+        console.log('❌ User already has a professional profile:', userId);
+        return res.status(409).json({
+          success: false,
+          message: 'You have already registered as a professional',
+          verificationStatus: existingProfile.verificationStatus
+        });
+      }
     }
 
     // Check if email already exists
     const existingEmail = await ProfessionalModel.findOne({ email });
     if (existingEmail) {
       console.log('❌ Email already exists:', email);
-      return res.status(409).json({ 
-        success: false, 
-        message: 'Email already registered' 
+      return res.status(409).json({
+        success: false,
+        message: 'Email already registered'
       });
     }
 
@@ -45,9 +68,9 @@ export const registerProfessional = async (req, res) => {
     const existingUsername = await ProfessionalModel.findOne({ username });
     if (existingUsername) {
       console.log('❌ Username already exists:', username);
-      return res.status(409).json({ 
-        success: false, 
-        message: 'Username already taken' 
+      return res.status(409).json({
+        success: false,
+        message: 'Username already taken'
       });
     }
 
@@ -60,7 +83,7 @@ export const registerProfessional = async (req, res) => {
 
     // Handle verification documents
     let documentPaths = [];
-    if (req.files && req.files.documents) {
+    if (req.files && req.files.documents && req.files.documents.length > 0) {
       documentPaths = req.files.documents.map(doc => ({
         filename: doc.filename,
         path: doc.path,
@@ -69,6 +92,12 @@ export const registerProfessional = async (req, res) => {
         size: doc.size
       }));
       console.log('✅ Documents uploaded:', documentPaths.length);
+    } else {
+      console.log('⚠️  No documents uploaded');
+      return res.status(400).json({
+        success: false,
+        message: 'At least one verification document is required'
+      });
     }
 
     // Create new professional record
@@ -82,31 +111,49 @@ export const registerProfessional = async (req, res) => {
       serviceArea,
       hourlyWage: parseFloat(hourlyWage),
       bio: bio || '',
+      userId: userId || null,
       profileImage: profileImagePath,
       verificationDocuments: documentPaths,
-      verificationStatus: 'verified',
-      verificationDate: new Date(),
+      location: {
+        type: "Point",
+        coordinates: [parseFloat(longitude) || 0, parseFloat(latitude) || 0]
+      },
+      formattedAddress: formattedAddress || serviceArea,
+      verificationStatus: 'pending',
+      isVerified: false,
+      isActive: true,
       createdAt: new Date()
     });
 
-    console.log('💾 Saving to database...');
+    console.log('💾 Professional object created:', {
+      firstName: newProfessional.firstName,
+      lastName: newProfessional.lastName,
+      email: newProfessional.email,
+      username: newProfessional.username,
+      serviceCategory: newProfessional.serviceCategory,
+      serviceArea: newProfessional.serviceArea,
+      hourlyWage: newProfessional.hourlyWage,
+      docsCount: newProfessional.verificationDocuments.length
+    });
+
     // Save to database
-    await newProfessional.save();
-    console.log('✅ Professional saved successfully:', newProfessional._id);
+    const savedProfessional = await newProfessional.save();
+    console.log('✅ Professional saved successfully to database:', savedProfessional._id);
 
     return res.status(201).json({
       success: true,
       message: 'Professional registration completed successfully!',
       data: {
-        id: newProfessional._id,
-        username: newProfessional.username,
-        email: newProfessional.email,
-        verificationStatus: newProfessional.verificationStatus
+        id: savedProfessional._id,
+        username: savedProfessional.username,
+        email: savedProfessional.email,
+        verificationStatus: savedProfessional.verificationStatus
       }
     });
 
   } catch (error) {
     console.error('❌ Professional registration error:', error);
+    console.error('Error stack:', error.stack);
     return res.status(500).json({
       success: false,
       message: 'Registration failed. Please try again.',
@@ -120,7 +167,9 @@ export const getProfessionalProfile = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const professional = await ProfessionalModel.findById(id).select('-verificationDocuments');
+    const professional = await ProfessionalModel.findOne({
+      _id: id
+    }).select('-verificationDocuments');
 
     if (!professional) {
       return res.status(404).json({
@@ -149,7 +198,7 @@ export const getAllProfessionals = async (req, res) => {
   try {
     const { page = 1, limit = 10, serviceCategory, serviceArea, verificationStatus = 'verified' } = req.query;
 
-    const query = { verificationStatus };
+    const query = { isVerified: true };
 
     if (serviceCategory) {
       query.serviceCategory = serviceCategory;
@@ -195,7 +244,7 @@ export const searchProfessionals = async (req, res) => {
   try {
     const { serviceCategory, serviceArea } = req.query;
 
-    const query = { verificationStatus: 'verified' };
+    const query = { isVerified: true };
 
     if (serviceCategory) {
       query.serviceCategory = serviceCategory;
@@ -228,16 +277,17 @@ export const searchProfessionals = async (req, res) => {
 export const updateProfessionalProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, bio, hourlyWage, serviceArea, phone } = req.body;
+    const { firstName, lastName, bio, hourlyWage, serviceArea, phone, formattedAddress } = req.body;
 
     const updateData = {};
 
     if (firstName) updateData.firstName = firstName;
     if (lastName) updateData.lastName = lastName;
     if (bio !== undefined) updateData.bio = bio;
-    if (hourlyWage) updateData.hourlyWage = parseFloat(hourlyWage);
+    if (hourlyWage !== undefined) updateData.hourlyWage = parseFloat(hourlyWage);
     if (serviceArea) updateData.serviceArea = serviceArea;
     if (phone) updateData.phone = phone;
+    if (formattedAddress) updateData.formattedAddress = formattedAddress;
 
     // Handle profile image update
     if (req.files && req.files.profileImage) {
@@ -343,6 +393,17 @@ export const verifyProfessional = async (req, res) => {
       });
     }
 
+    // Create notification for the user
+    if (professional.userId) {
+      const title = status === 'verified' ? 'Application Approved!' : 'Application Rejected';
+      const description = status === 'verified' 
+        ? 'Your professional profile has been verified. You can now receive job requests.'
+        : `Your professional profile application was rejected. Reason: ${rejectionReason || 'No reason provided.'}`;
+      const type = status === 'verified' ? 'update' : 'request';
+      
+      await createNotification(professional.userId, type, title, description, '/dashboard');
+    }
+
     return res.status(200).json({
       success: true,
       message: `Professional ${status} successfully`,
@@ -401,9 +462,9 @@ export const getProfessionalByUsername = async (req, res) => {
   try {
     const { username } = req.params;
 
-    const professional = await ProfessionalModel.findOne({ 
+    const professional = await ProfessionalModel.findOne({
       username,
-      verificationStatus: 'verified'
+      isVerified: true
     }).select('-verificationDocuments');
 
     if (!professional) {
@@ -423,6 +484,37 @@ export const getProfessionalByUsername = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch professional',
+      error: error.message
+    });
+  }
+};
+
+// Get current user's professional profile
+export const getMyProfessionalProfile = async (req, res) => {
+  try {
+    const { email, id } = req.user;
+
+    const professional = await ProfessionalModel.findOne({
+      $or: [{ email }, { userId: id }]
+    }).select('-verificationDocuments');
+
+    if (!professional) {
+      return res.status(404).json({
+        success: false,
+        message: 'No professional profile found for this user'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: professional
+    });
+
+  } catch (error) {
+    console.error('Error fetching my professional profile:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch professional profile',
       error: error.message
     });
   }

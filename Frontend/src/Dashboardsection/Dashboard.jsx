@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import Sidebar from "../components/Sidebar";
 import {
   Menu,
   X,
@@ -25,6 +27,8 @@ import {
   CheckCircle,
 } from "lucide-react";
 import Logo from "../Logo";
+import { addTakenService } from "../services/storage";
+import { createBooking } from "../bookingService";
 
 const Dashboard = ({ onProfileClick }) => {
   const navigate = useNavigate();
@@ -33,13 +37,13 @@ const Dashboard = ({ onProfileClick }) => {
   const [selectedJob, setSelectedJob] = useState(null);
   const [showHireForm, setShowHireForm] = useState(false);
   const [showMessageForm, setShowMessageForm] = useState(false);
-  
+
   const [messageFormData, setMessageFormData] = useState({
     subject: "",
     message: "",
   });
   const [messageFormErrors, setMessageFormErrors] = useState({});
-  
+
   const [hireFormData, setHireFormData] = useState({
     fullName: "",
     workDescription: "",
@@ -48,11 +52,59 @@ const Dashboard = ({ onProfileClick }) => {
   });
   const [hireFormErrors, setHireFormErrors] = useState({});
 
-  const userName = localStorage.getItem("userName") || "Professional User";
+  const [userData, setUserData] = useState({
+    name: localStorage.getItem("userName") || "Professional User",
+    email: localStorage.getItem("userEmail") || "user@kamaunepal.com",
+    location: localStorage.getItem("userLocation") || "Not set",
+  });
+
+  const userId = localStorage.getItem("userId");
+  const userRole = localStorage.getItem("userRole");
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!userId) return;
+
+      try {
+        let endpoint = `/api/users/${userId}/profile`;
+        // Check if professional route or user route should be used
+        if (userRole === "professional") {
+          endpoint = `/api/professionals/${userId}`;
+        }
+
+        const response = await axios.get(endpoint);
+        const data = userRole === "professional" ? response.data.data : response.data.user;
+
+        if (data) {
+          const fetchedLocation = data.formattedAddress || (typeof data.location === 'string' ? data.location : "Not set");
+          const fetchedName = data.name || data.username || (data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : userData.name);
+          const fetchedEmail = data.email || userData.email;
+
+          setUserData({
+            name: fetchedName,
+            email: fetchedEmail,
+            location: fetchedLocation
+          });
+
+          // Sync localStorage
+          localStorage.setItem("userName", fetchedName);
+          localStorage.setItem("userEmail", fetchedEmail);
+          if (fetchedLocation && fetchedLocation !== "Not set") {
+            localStorage.setItem("userLocation", fetchedLocation);
+          }
+        }
+      } catch (error) {
+        console.error("Error syncing dashboard profile:", error);
+      }
+    };
+
+    fetchUserProfile();
+  }, [userId, userRole]);
 
   const user = {
-    name: userName,
-    email: "user@kamaunepal.com",
+    name: userData.name,
+    email: userData.email,
+    location: userData.location,
     role: "",
     joinDate: "Jan 2024",
   };
@@ -158,6 +210,10 @@ const Dashboard = ({ onProfileClick }) => {
   const handleHireNowClick = () => {
     setShowHireForm(true);
     setHireFormErrors({});
+    // Pre-fill location from user's saved location
+    if (user.location && user.location !== "Not set") {
+      setHireFormData(prev => ({ ...prev, location: user.location }));
+    }
   };
 
   const handleHireFormChange = (e) => {
@@ -168,7 +224,7 @@ const Dashboard = ({ onProfileClick }) => {
     }
   };
 
-  const handleHireFormSubmit = (e) => {
+  const handleHireFormSubmit = async (e) => {
     e.preventDefault();
     const errors = {};
     if (!hireFormData.fullName.trim()) errors.fullName = "Full name is required";
@@ -181,14 +237,46 @@ const Dashboard = ({ onProfileClick }) => {
       return;
     }
 
-    alert(`Service request sent to ${selectedJob.title} at ${selectedJob.company}!`);
-    setShowHireForm(false);
-    setHireFormData({ fullName: "", workDescription: "", timeSchedule: "", location: "" });
+    try {
+      // Get userId from localStorage
+      const userId = localStorage.getItem("userId");
+
+      if (!userId) {
+        alert("Error: User ID not found. Please log in again.");
+        return;
+      }
+
+      // Create booking data object
+      const bookingData = {
+        userId,
+        serviceTitle: selectedJob.title,
+        serviceProvider: selectedJob.company,
+        fullName: hireFormData.fullName,
+        workDescription: hireFormData.workDescription,
+        timeSchedule: hireFormData.timeSchedule,
+        location: hireFormData.location,
+        hourlyRate: selectedJob.hourlyRate || "$0.00",
+        rating: selectedJob.rating || 0
+      };
+
+      // Send booking to backend
+      const response = await createBooking(bookingData);
+
+      if (response.success) {
+        alert(`✅ Booking confirmed!\n\nService: ${selectedJob.title}\nProvider: ${selectedJob.company}\n\nYour booking has been sent to the provider.`);
+        setShowHireForm(false);
+        setHireFormData({ fullName: "", workDescription: "", timeSchedule: "", location: "" });
+      } else {
+        alert("Error: " + (response.message || "Failed to create booking"));
+      }
+    } catch (error) {
+      console.error("Error submitting booking:", error);
+      alert("Error: " + (error.message || "Failed to create booking. Please try again."));
+    }
   };
 
   const handleMessageClick = () => {
-    setShowMessageForm(true);
-    setMessageFormErrors({});
+    navigate('/messages');
   };
 
   const handleMessageFormChange = (e) => {
@@ -216,39 +304,51 @@ const Dashboard = ({ onProfileClick }) => {
   };
 
   const handleServiceTaken = () => {
-    const confirmService = window.confirm(
-      `Mark service "${selectedJob.title}" as taken? This will update your services taken count.`
-    );
-    
-    if (confirmService) {
-      // Update the job status to "Service Taken"
-      const updatedJob = { ...selectedJob, status: "Service Taken" };
-      setSelectedJob(updatedJob);
-      
-      // Update the recentJobs array
-      const jobIndex = recentJobs.findIndex(j => j.title === selectedJob.title && j.company === selectedJob.company);
-      if (jobIndex !== -1) {
-        recentJobs[jobIndex].status = "Service Taken";
-        recentJobs[jobIndex].color = "bg-orange-100 text-orange-800";
+    try {
+      const confirmService = window.confirm(
+        `Mark service "${selectedJob.title}" as taken? This will update your services taken count.`
+      );
+
+      if (confirmService) {
+        // Update the job status to "Service Taken"
+        const updatedJob = { ...selectedJob, status: "Service Taken" };
+        setSelectedJob(updatedJob);
+
+        // Update the recentJobs array
+        const jobIndex = recentJobs.findIndex(j => j.title === selectedJob.title && j.company === selectedJob.company);
+        if (jobIndex !== -1) {
+          recentJobs[jobIndex].status = "Service Taken";
+          recentJobs[jobIndex].color = "bg-orange-100 text-orange-800";
+        }
+
+        // Increment the services taken count in stats
+        stats[0].value = String(parseInt(stats[0].value) + 1);
+
+        // Log the action
+        console.log(`Service taken: ${selectedJob.title} from ${selectedJob.company}`);
+
+        // Save to localStorage using the storage service
+        const serviceRecord = {
+          title: selectedJob.title,
+          provider: selectedJob.company,
+          company: selectedJob.company,
+          rating: selectedJob.rating || 4.5,
+          cost: selectedJob.hourlyRate || "$0.00",
+          category: selectedJob.title.includes("Developer") ? "Tech" :
+            selectedJob.title.includes("Engineer") ? "Creative" : "Home",
+          dateAdded: new Date().toISOString(),
+          date: new Date().toLocaleDateString()
+        };
+
+        console.log("Service record to save:", serviceRecord);
+        addTakenService(serviceRecord);
+        console.log("Service saved successfully");
+
+        alert(`✅ Service marked as taken!\nService: ${selectedJob.title}\nProvider: ${selectedJob.company}\n\nThe service has been added to your services taken count.`);
       }
-      
-      // Increment the services taken count in stats
-      stats[0].value = String(parseInt(stats[0].value) + 1);
-      
-      // Log the action
-      console.log(`Service taken: ${selectedJob.title} from ${selectedJob.company}`);
-      
-      alert(`✅ Service marked as taken!\nService: ${selectedJob.title}\nProvider: ${selectedJob.company}\n\nThe service has been added to your services taken count.`);
-      
-      // Optional: Save to localStorage for persistence
-      const serviceTakenList = JSON.parse(localStorage.getItem('servicesTaken') || '[]');
-      serviceTakenList.push({
-        title: selectedJob.title,
-        company: selectedJob.company,
-        date: new Date().toLocaleDateString(),
-        rating: selectedJob.rating
-      });
-      localStorage.setItem('servicesTaken', JSON.stringify(serviceTakenList));
+    } catch (error) {
+      console.error("Error in handleServiceTaken:", error);
+      alert("Error marking service as taken. Please try again.");
     }
   };
 
@@ -273,9 +373,9 @@ const Dashboard = ({ onProfileClick }) => {
                 </div>
               </div>
               <div className="hidden sm:block">
-                 <button onClick={handleLogoClick} className="hover:opacity-80 transition cursor-pointer">
-                   <Logo />
-                 </button>
+                <button onClick={handleLogoClick} className="hover:opacity-80 transition cursor-pointer">
+                  <Logo />
+                </button>
               </div>
             </div>
           </div>
@@ -372,7 +472,7 @@ const Dashboard = ({ onProfileClick }) => {
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">About the Service</h3>
                   <div className="space-y-3 text-gray-700 leading-relaxed">
                     <p>
-                      Professional and reliable service provider in the {selectedJob.location} area. 
+                      Professional and reliable service provider in the {selectedJob.location} area.
                       Specializing in high-quality {selectedJob.title} work for residential and commercial clients.
                     </p>
                     <p>
@@ -418,11 +518,10 @@ const Dashboard = ({ onProfileClick }) => {
                     </button>
                     <button
                       onClick={handleServiceTaken}
-                      className={`w-full py-3 font-bold rounded-lg transition transform active:scale-95 flex items-center justify-center gap-2 ${
-                        selectedJob.status === "Service Taken"
-                          ? "bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-200"
-                          : "bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-200"
-                      }`}
+                      className={`w-full py-3 font-bold rounded-lg transition transform active:scale-95 flex items-center justify-center gap-2 ${selectedJob.status === "Service Taken"
+                        ? "bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-200"
+                        : "bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-200"
+                        }`}
                     >
                       <CheckCircle size={18} />
                       {selectedJob.status === "Service Taken" ? "Service Taken ✓" : "Mark Service Taken"}
@@ -474,9 +573,8 @@ const Dashboard = ({ onProfileClick }) => {
                       value={hireFormData.fullName}
                       onChange={handleHireFormChange}
                       placeholder="e.g. Rahul Sharma"
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition ${
-                        hireFormErrors.fullName ? "border-red-500" : "border-gray-200"
-                      }`}
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition ${hireFormErrors.fullName ? "border-red-500" : "border-gray-200"
+                        }`}
                     />
                     {hireFormErrors.fullName && <p className="text-red-500 text-xs mt-1">{hireFormErrors.fullName}</p>}
                   </div>
@@ -489,9 +587,8 @@ const Dashboard = ({ onProfileClick }) => {
                       onChange={handleHireFormChange}
                       placeholder="Tell us what needs to be done..."
                       rows={4}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition resize-none ${
-                        hireFormErrors.workDescription ? "border-red-500" : "border-gray-200"
-                      }`}
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition resize-none ${hireFormErrors.workDescription ? "border-red-500" : "border-gray-200"
+                        }`}
                     />
                     {hireFormErrors.workDescription && (
                       <p className="text-red-500 text-xs mt-1">{hireFormErrors.workDescription}</p>
@@ -505,9 +602,8 @@ const Dashboard = ({ onProfileClick }) => {
                         name="timeSchedule"
                         value={hireFormData.timeSchedule}
                         onChange={handleHireFormChange}
-                        className={`w-full px-3 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none bg-white text-sm ${
-                          hireFormErrors.timeSchedule ? "border-red-500" : "border-gray-200"
-                        }`}
+                        className={`w-full px-3 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none bg-white text-sm ${hireFormErrors.timeSchedule ? "border-red-500" : "border-gray-200"
+                          }`}
                       >
                         <option value="">Choose...</option>
                         <option value="Morning">Morning</option>
@@ -523,9 +619,8 @@ const Dashboard = ({ onProfileClick }) => {
                         value={hireFormData.location}
                         onChange={handleHireFormChange}
                         placeholder="e.g. Kathmandu"
-                        className={`w-full px-3 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm ${
-                          hireFormErrors.location ? "border-red-500" : "border-gray-200"
-                        }`}
+                        className={`w-full px-3 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm ${hireFormErrors.location ? "border-red-500" : "border-gray-200"
+                          }`}
                       />
                     </div>
                   </div>
@@ -555,11 +650,11 @@ const Dashboard = ({ onProfileClick }) => {
               <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in slide-in-from-bottom-4 duration-300">
                 <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                     <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-xl">{selectedJob.avatar}</div>
-                     <div>
-                       <h2 className="font-bold text-gray-900">Message {selectedJob.title}</h2>
-                       <p className="text-xs text-gray-500">Usually replies in &lt; 2h</p>
-                     </div>
+                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-xl">{selectedJob.avatar}</div>
+                    <div>
+                      <h2 className="font-bold text-gray-900">Message {selectedJob.title}</h2>
+                      <p className="text-xs text-gray-500">Usually replies in &lt; 2h</p>
+                    </div>
                   </div>
                   <button onClick={() => setShowMessageForm(false)} className="text-gray-400 hover:text-gray-600 p-2 transition">
                     <X size={20} />
@@ -575,9 +670,8 @@ const Dashboard = ({ onProfileClick }) => {
                       value={messageFormData.subject}
                       onChange={handleMessageFormChange}
                       placeholder="Service Inquiry"
-                      className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition ${
-                        messageFormErrors.subject ? "border-red-500" : "border-gray-200"
-                      }`}
+                      className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition ${messageFormErrors.subject ? "border-red-500" : "border-gray-200"
+                        }`}
                     />
                   </div>
                   <div>
@@ -588,9 +682,8 @@ const Dashboard = ({ onProfileClick }) => {
                       onChange={handleMessageFormChange}
                       placeholder="Hi, I need help with..."
                       rows={5}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none resize-none ${
-                        messageFormErrors.message ? "border-red-500" : "border-gray-200"
-                      }`}
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none resize-none ${messageFormErrors.message ? "border-red-500" : "border-gray-200"
+                        }`}
                     />
                   </div>
                   <button
@@ -641,7 +734,7 @@ const Dashboard = ({ onProfileClick }) => {
                 <Bell size={20} className="text-gray-600" />
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border-2 border-white"></span>
               </button>
-              
+
               <div className="h-8 w-[1px] bg-gray-200 hidden sm:block"></div>
 
               <div
@@ -668,81 +761,27 @@ const Dashboard = ({ onProfileClick }) => {
       </nav>
 
       <div className="flex flex-1">
-        {sidebarOpen && (
-          <div className="fixed inset-0 z-40 lg:hidden">
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>
-          </div>
-        )}
-
-        <aside
-          className={`fixed lg:sticky top-[61px] h-[calc(100vh-61px)] bg-white border-r border-gray-200 w-64 z-50 transform transition-transform duration-300 ease-in-out ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } lg:translate-x-0`}
-        >
-          <nav className="p-4 space-y-1 flex flex-col h-full">
-            <div className="space-y-1">
-              {[
-                { id: "overview", label: "Dashboard", icon: Home },
-                { id: "bookings", label: "My Bookings", icon: Calendar },
-                { id: "messages", label: "Messages", icon: MessageSquare, badge: 3 },
-                { id: "activity", label: "History", icon: TrendingUp },
-                { id: "payments", label: "Payments", icon: CreditCard },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${
-                    activeTab === item.id 
-                      ? "bg-orange-50 text-orange-600 shadow-sm" 
-                      : "text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  <item.icon size={20} className={activeTab === item.id ? "text-orange-600" : "text-gray-400"} />
-                  <span className="text-sm">{item.label}</span>
-                  {item.badge && (
-                    <span className="ml-auto text-[10px] bg-red-500 text-white font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-gray-100">
-               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-2">Support & Admin</p>
-               {[
-                 { id: "settings", label: "Settings", icon: Settings },
-                 { id: "help", label: "Help Center", icon: HelpCircle },
-               ].map((item) => (
-                 <button
-                   key={item.id}
-                   onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium ${
-                     activeTab === item.id ? "bg-orange-50 text-orange-600" : "text-gray-600 hover:bg-gray-50"
-                   }`}
-                 >
-                   <item.icon size={20} className="text-gray-400" />
-                   <span className="text-sm">{item.label}</span>
-                 </button>
-               ))}
-            </div>
-
-            <div className="mt-auto pb-4">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition font-semibold"
-              >
-                <LogOut size={20} />
-                <span className="text-sm">Log Out</span>
-              </button>
-            </div>
-          </nav>
-        </aside>
+        <Sidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          handleLogout={handleLogout}
+        />
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-          <header className="mb-8">
-             <h1 className="text-3xl font-bold text-gray-900">Namaste, {user.name}</h1>
-             <p className="text-gray-500">Need a hand? Explore professional services in your area.</p>
+          <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Namaste, {user.name}</h1>
+              <p className="text-gray-500">Need a hand? Explore professional services in your area.</p>
+            </div>
+            {user.location !== "Not set" && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-100 rounded-xl text-orange-700 shadow-sm self-start md:self-auto">
+                <MapPin size={18} className="text-orange-600" />
+                <div className="text-left">
+                  <p className="text-[10px] font-bold uppercase tracking-wider leading-none mb-1">Your Location</p>
+                  <p className="text-sm font-bold truncate max-w-[200px]">{user.location}</p>
+                </div>
+              </div>
+            )}
           </header>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -775,8 +814,8 @@ const Dashboard = ({ onProfileClick }) => {
                 </div>
                 <div className="divide-y divide-gray-50">
                   {recentJobs.map((job, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="flex items-center justify-between p-6 hover:bg-orange-50/30 transition group cursor-pointer"
                       onClick={() => setSelectedJob(job)}
                     >
@@ -787,9 +826,9 @@ const Dashboard = ({ onProfileClick }) => {
                         <div>
                           <h3 className="font-bold text-gray-900 group-hover:text-orange-600 transition">{job.title}</h3>
                           <div className="flex items-center gap-2 text-sm text-gray-500">
-                             <span className="font-medium">{job.company}</span>
-                             <span>•</span>
-                             <span>{job.date}</span>
+                            <span className="font-medium">{job.company}</span>
+                            <span>•</span>
+                            <span>{job.date}</span>
                           </div>
                         </div>
                       </div>
@@ -798,8 +837,8 @@ const Dashboard = ({ onProfileClick }) => {
                           {job.status}
                         </span>
                         <div className="flex items-center gap-1 text-xs text-yellow-500 font-bold">
-                           <Star size={12} className="fill-current" />
-                           {job.rating}
+                          <Star size={12} className="fill-current" />
+                          {job.rating}
                         </div>
                       </div>
                     </div>
@@ -857,25 +896,25 @@ const Dashboard = ({ onProfileClick }) => {
 
             <div className="space-y-8">
               <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                 <h3 className="text-lg font-bold text-gray-900 mb-4">Upcoming Schedule</h3>
-                 <div className="space-y-4">
-                    <div className="p-4 border border-orange-100 bg-orange-50/30 rounded-2xl">
-                       <p className="text-xs font-bold text-orange-600 uppercase mb-1">Today @ 4:00 PM</p>
-                       <p className="font-bold text-gray-900">AC Maintenance</p>
-                       <p className="text-xs text-gray-500">Technician: Samundra K.</p>
-                    </div>
-                    <div className="p-4 border border-gray-100 rounded-2xl">
-                       <p className="text-xs font-bold text-gray-400 uppercase mb-1">Saturday @ 10:00 AM</p>
-                       <p className="font-bold text-gray-900">Carpentry Works</p>
-                       <p className="text-xs text-gray-500">Wardrobe Repair</p>
-                    </div>
-                 </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Upcoming Schedule</h3>
+                <div className="space-y-4">
+                  <div className="p-4 border border-orange-100 bg-orange-50/30 rounded-2xl">
+                    <p className="text-xs font-bold text-orange-600 uppercase mb-1">Today @ 4:00 PM</p>
+                    <p className="font-bold text-gray-900">AC Maintenance</p>
+                    <p className="text-xs text-gray-500">Technician: Samundra K.</p>
+                  </div>
+                  <div className="p-4 border border-gray-100 rounded-2xl">
+                    <p className="text-xs font-bold text-gray-400 uppercase mb-1">Saturday @ 10:00 AM</p>
+                    <p className="font-bold text-gray-900">Carpentry Works</p>
+                    <p className="text-xs text-gray-500">Wardrobe Repair</p>
+                  </div>
+                </div>
               </section>
             </div>
           </div>
         </main>
       </div>
-    </div>
+    </div >
   );
 };
 

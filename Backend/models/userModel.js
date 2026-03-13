@@ -7,9 +7,13 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     address: { type: String, required: true },
     phone: { type: String },
-    location: { type: String },
+    location: {
+      type: { type: String, enum: ["Point"], default: "Point" },
+      coordinates: { type: [Number], default: [0, 0] } // [longitude, latitude]
+    },
+    formattedAddress: { type: String },
     username: { type: String },
-    profileImage: { 
+    profileImage: {
       type: String,
       default: null,
       // Note: Base64 encoded images are stored as strings
@@ -18,8 +22,11 @@ const userSchema = new mongoose.Schema(
     otp: { type: String },
     otpExpires: { type: Date },
     isVerified: { type: Boolean, default: false },
+    googleId: { type: String, unique: true, sparse: true },
   },
   { timestamps: true }
 );
+
+userSchema.index({ location: "2dsphere" });
 
 export default mongoose.model("User", userSchema);

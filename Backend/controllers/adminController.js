@@ -1,4 +1,6 @@
 import ProfessionalModel from '../models/professionalModel.js';
+import UserModel from '../models/userModel.js';
+import NotificationModel from '../models/notificationModel.js';
 
 /**
  * Get admin dashboard statistics
@@ -266,6 +268,7 @@ export const approveProfessional = async (req, res) => {
       id,
       {
         verificationStatus: 'verified',
+        isVerified: true,
         verificationDate: new Date()
       },
       { new: true }
@@ -275,6 +278,16 @@ export const approveProfessional = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Professional not found'
+      });
+    }
+
+    // Send notification to the user
+    if (professional.userId) {
+      await NotificationModel.create({
+        userId: professional.userId,
+        type: 'system',
+        title: 'Professional Profile Verified!',
+        description: 'Congratulations! Your professional profile has been approved. You can now access the Professional Dashboard to manage requests.',
       });
     }
 
@@ -314,6 +327,7 @@ export const rejectProfessional = async (req, res) => {
       id,
       {
         verificationStatus: 'rejected',
+        isVerified: false,
         rejectionReason,
         verificationDate: new Date()
       },
@@ -324,6 +338,16 @@ export const rejectProfessional = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Professional not found'
+      });
+    }
+
+    // Send notification to the user
+    if (professional.userId) {
+      await NotificationModel.create({
+        userId: professional.userId,
+        type: 'system',
+        title: 'Professional Profile Update',
+        description: `Your professional profile application was not approved at this time. Reason: ${rejectionReason}`,
       });
     }
 
@@ -537,4 +561,64 @@ const convertToCSV = (data) => {
 
   const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
   return csv;
+};
+
+/**
+ * Broadcast a notification to all users, professionals, or both
+ * Body: { recipient: 'all'|'users'|'professionals', title, message }
+ */
+export const broadcastNotification = async (req, res) => {
+  try {
+    const { recipient, title, message } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({ success: false, message: 'Title and message are required' });
+    }
+
+    let userIds = [];
+
+    if (recipient === 'all' || recipient === 'users') {
+      const users = await UserModel.find({}, '_id');
+      userIds.push(...users.map(u => u._id));
+    }
+
+    if (recipient === 'all' || recipient === 'professionals') {
+      const professionals = await ProfessionalModel.find({}, 'userId');
+      const proUserIds = professionals.map(p => p.userId).filter(Boolean);
+      // Avoid duplicates if 'all'
+      const existingSet = new Set(userIds.map(id => id.toString()));
+      proUserIds.forEach(id => {
+        if (!existingSet.has(id.toString())) {
+          userIds.push(id);
+          existingSet.add(id.toString());
+        }
+      });
+    }
+
+    if (userIds.length === 0) {
+      return res.status(404).json({ success: false, message: 'No recipients found' });
+    }
+
+    const notifications = userIds.map(userId => ({
+      userId,
+      type: 'system',
+      title,
+      description: message,
+    }));
+
+    await NotificationModel.insertMany(notifications);
+
+    return res.status(200).json({
+      success: true,
+      message: `Notification sent to ${userIds.length} recipient(s)`,
+      count: userIds.length,
+    });
+  } catch (error) {
+    console.error('Error broadcasting notification:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to broadcast notification',
+      error: error.message,
+    });
+  }
 };

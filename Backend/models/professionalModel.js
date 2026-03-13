@@ -11,6 +11,11 @@ const professionalSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false // Optional for legacy or guest registrations, but will be set for logged-in users
+  },
   username: {
     type: String,
     required: true,
@@ -38,16 +43,10 @@ const professionalSchema = new mongoose.Schema({
   serviceArea: {
     type: String,
     required: true,
-    enum: [
-      'thamel', 'kathmandu-center', 'patan', 'boudha', 'koteshwor',
-      'bhaktapur-center', 'nagarkot', 'changu',
-      'pulchowk', 'jawalakhel'
-    ]
   },
   hourlyWage: {
     type: Number,
-    required: true,
-    min: 0
+    required: false
   },
   bio: {
     type: String,
@@ -101,6 +100,15 @@ const professionalSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  location: {
+    type: { type: String, enum: ["Point"], default: "Point" },
+    coordinates: { type: [Number], default: [0, 0] }
+  },
+  formattedAddress: { type: String },
   createdAt: {
     type: Date,
     default: Date.now
@@ -115,6 +123,7 @@ const professionalSchema = new mongoose.Schema({
 professionalSchema.index({ serviceCategory: 1, serviceArea: 1, verificationStatus: 1 });
 professionalSchema.index({ email: 1 });
 professionalSchema.index({ username: 1 });
+professionalSchema.index({ location: "2dsphere" });
 
 const ProfessionalModel = mongoose.model('Professional', professionalSchema);
 

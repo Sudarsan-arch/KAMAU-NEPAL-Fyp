@@ -18,8 +18,8 @@ const seedAdmin = async () => {
     console.log('Connected to MongoDB');
 
     // Check if admin already exists
-    const existingAdmin = await AdminModel.findOne({ email: 'saugatbista456@gmail.com' });
-    
+    const existingAdmin = await AdminModel.findOne({ email: 'admin@example.com' });
+
     if (existingAdmin) {
       console.log('Admin already exists. Exiting...');
       await mongoose.connection.close();
@@ -29,7 +29,7 @@ const seedAdmin = async () => {
     // Create default admin
     const admin = new AdminModel({
       username: 'admin',
-      email: 'saugatbista456@gmail.com',
+      email: 'admin@example.com',
       password: 'admin123', // Will be hashed before saving
       fullName: 'System Administrator',
       role: 'super_admin',
@@ -48,7 +48,7 @@ const seedAdmin = async () => {
     await admin.save();
     console.log('✅ Default admin created successfully!');
     console.log('Username: admin');
-    console.log('Email: admin@example.com');
+    console.log(`Email: ${admin.email}`);
     console.log('Password: admin123');
     console.log('\n⚠️  IMPORTANT: Change the password immediately in production!');
 

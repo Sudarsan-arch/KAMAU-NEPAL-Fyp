@@ -11,13 +11,15 @@ import {
   getPendingApplications,
   verifyProfessional,
   deleteProfessionalProfile,
-  getProfessionalByUsername
+  getProfessionalByUsername,
+  getMyProfessionalProfile
 } from './controllers/professionalController.js';
+import { verifyToken } from './authMiddleware.js';
 
 const router = express.Router();
 
 // Configure multer for file uploads
-const uploadDir = './Backend/uploads/professionals';
+const uploadDir = './uploads/professionals';
 
 // Create directory if it doesn't exist
 if (!fs.existsSync(uploadDir)) {
@@ -56,7 +58,7 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 30 * 1024 * 1024 // 30MB limit
   }
 });
 
@@ -65,10 +67,14 @@ const upload = multer({
 // Register a new professional
 // POST /api/professionals/register
 // Expects: multipart/form-data with profileImage and document_0, document_1, etc.
-router.post('/register', upload.fields([
+router.post('/register', verifyToken, upload.fields([
   { name: 'profileImage', maxCount: 1 },
   { name: 'documents', maxCount: 5 }
 ]), registerProfessional);
+
+// Get current user's professional profile
+// GET /api/professionals/me
+router.get('/me', verifyToken, getMyProfessionalProfile);
 
 // Get all professionals (verified only by default)
 // GET /api/professionals?page=1&limit=10&serviceCategory=plumbing&serviceArea=thamel&verificationStatus=verified

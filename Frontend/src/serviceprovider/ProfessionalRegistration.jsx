@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   ArrowLeft,
   CheckCircle2,
@@ -16,9 +17,11 @@ import {
   Upload,
   FileText,
   Trash2,
+  Clock,
 } from "lucide-react"
 
 const ProfessionalRegistration = () => {
+  const navigate = useNavigate()
   const fileInputRef = useRef(null)
   const docInputRef = useRef(null)
 
@@ -32,53 +35,91 @@ const ProfessionalRegistration = () => {
     serviceArea: "",
     hourlyWage: "",
     bio: "",
+    latitude: "",
+    longitude: "",
+    formattedAddress: ""
   })
 
+  const [locationSearch, setLocationSearch] = useState("")
+  const [locationResults, setLocationResults] = useState([])
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false)
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false)
+
   const [profileImage, setProfileImage] = useState(null)
+  const [profileImageFile, setProfileImageFile] = useState(null)
   const [documents, setDocuments] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [errors, setErrors] = useState({})
+  const [isLoggedIn] = useState(() => !!localStorage.getItem('token'))
+  const [professionalId, setProfessionalId] = useState(null)
+  const [existingStatus, setExistingStatus] = useState(null)
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true)
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      if (!isLoggedIn) {
+        setIsLoadingStatus(false)
+        return
+      }
+
+      try {
+        const response = await fetch('/api/professionals/me', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        })
+        const data = await response.json()
+        if (response.ok && data.success) {
+          setExistingStatus(data.data.verificationStatus)
+        }
+      } catch (error) {
+        console.error('Error fetching professional status:', error)
+      } finally {
+        setIsLoadingStatus(false)
+      }
+    }
+
+    fetchStatus()
+  }, [isLoggedIn])
 
   const validateForm = () => {
     const newErrors = {}
-    
+
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required"
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required"
     if (!formData.username.trim()) newErrors.username = "Username is required"
-    
+
     if (!formData.email.trim()) {
       newErrors.email = "Email is required"
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email"
     }
-    
+
     if (!formData.phone.trim()) {
       newErrors.phone = "Phone number is required"
     } else if (!/^[0-9]{10}$/.test(formData.phone.replace(/\D/g, ''))) {
       newErrors.phone = "Please enter a valid 10-digit phone number"
     }
-    
+
     if (!formData.serviceCategory) newErrors.serviceCategory = "Service category is required"
     if (!formData.serviceArea) newErrors.serviceArea = "Service area is required"
-    
-    if (!formData.hourlyWage) {
-      newErrors.hourlyWage = "Hourly wage is required"
-    } else if (parseFloat(formData.hourlyWage) <= 0) {
-      newErrors.hourlyWage = "Hourly wage must be greater than 0"
+
+    if (formData.hourlyWage && parseFloat(formData.hourlyWage) < 0) {
+      newErrors.hourlyWage = "Hourly wage cannot be negative"
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    
+
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: undefined }))
     }
-    
+
     if (name === "phone") {
       const cleaned = value.replace(/\D/g, '')
       const formatted = cleaned.slice(0, 10)
@@ -88,12 +129,50 @@ const ProfessionalRegistration = () => {
     }
   }
 
+  const handleLocationSearch = async (query) => {
+    setLocationSearch(query)
+    if (errors.serviceArea) {
+      setErrors(prev => ({ ...prev, serviceArea: undefined }))
+    }
+
+    if (query.length < 3) {
+      setLocationResults([])
+      setShowLocationDropdown(false)
+      return
+    }
+
+    setIsSearchingLocation(true)
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=np`)
+      const data = await response.json()
+      setLocationResults(data)
+      setShowLocationDropdown(true)
+    } catch (error) {
+      console.error("Location search error:", error)
+    } finally {
+      setIsSearchingLocation(false)
+    }
+  }
+
+  const selectLocation = (location) => {
+    setFormData(prev => ({
+      ...prev,
+      serviceArea: location.display_name,
+      formattedAddress: location.display_name,
+      latitude: location.lat,
+      longitude: location.lon
+    }))
+    setLocationSearch(location.display_name)
+    setShowLocationDropdown(false)
+    setLocationResults([])
+  }
+
   const handleImageChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image size should be less than 5MB")
+    if (file.size > 30 * 1024 * 1024) {
+      alert("Image size should be less than 30MB")
       return
     }
 
@@ -102,6 +181,10 @@ const ProfessionalRegistration = () => {
       return
     }
 
+    // Store the actual file for upload
+    setProfileImageFile(file)
+
+    // Create preview for display
     const reader = new FileReader()
     reader.onloadend = () => {
       setProfileImage(reader.result)
@@ -110,10 +193,6 @@ const ProfessionalRegistration = () => {
       alert("Failed to read image file")
     }
     reader.readAsDataURL(file)
-    
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
   }
 
   const handleDocChange = (e) => {
@@ -121,10 +200,10 @@ const ProfessionalRegistration = () => {
     if (!files) return
 
     const newDocs = []
-    
+
     Array.from(files).forEach((file) => {
-      if (file.size > 10 * 1024 * 1024) {
-        alert(`File ${file.name} is too large. Max size is 10MB`)
+      if (file.size > 30 * 1024 * 1024) {
+        alert(`File ${file.name} is too large. Max size is 30MB`)
         return
       }
 
@@ -143,7 +222,7 @@ const ProfessionalRegistration = () => {
     })
 
     setDocuments((prev) => [...prev, ...newDocs])
-    
+
     if (docInputRef.current) {
       docInputRef.current.value = ''
     }
@@ -158,7 +237,7 @@ const ProfessionalRegistration = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       const firstError = Object.keys(errors)[0]
       const element = document.querySelector(`[name="${firstError}"]`)
@@ -174,15 +253,16 @@ const ProfessionalRegistration = () => {
     setIsSubmitting(true)
 
     const submitData = new FormData()
-    
+
     Object.entries(formData).forEach(([key, value]) => {
       submitData.append(key, value)
     })
-    
-    if (profileImage && fileInputRef.current?.files?.[0]) {
-      submitData.append('profileImage', fileInputRef.current.files[0])
+
+    // Append the actual profile image file if it exists
+    if (profileImageFile) {
+      submitData.append('profileImage', profileImageFile)
     }
-    
+
     documents.forEach((doc, index) => {
       submitData.append('documents', doc.file)
     })
@@ -192,8 +272,11 @@ const ProfessionalRegistration = () => {
       console.log('Number of documents:', documents.length);
       console.log('Has profile image:', !!profileImage);
 
-      const response = await fetch('http://localhost:5001/api/professionals/register', {
+      const response = await fetch('/api/professionals/register', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: submitData
       })
 
@@ -208,6 +291,13 @@ const ProfessionalRegistration = () => {
       }
 
       setIsSubmitting(false)
+      setProfessionalId(data.data?.id)
+
+      // Update local storage to sync the profile image immediately across the app
+      if (profileImage) {
+        localStorage.setItem('userProfileImage', profileImage);
+      }
+
       setSubmitted(true)
       window.scrollTo({ top: 0, behavior: "smooth" })
     } catch (error) {
@@ -229,25 +319,48 @@ const ProfessionalRegistration = () => {
     { value: "tutoring", label: "📚 Tutoring" },
   ]
 
-  const serviceAreas = [
-    { value: "", label: "Select location", disabled: true },
-    { group: "Kathmandu", options: [
-      { value: "thamel", label: "Thamel" },
-      { value: "kathmandu-center", label: "Kathmandu Center" },
-      { value: "patan", label: "Patan" },
-      { value: "boudha", label: "Boudha" },
-      { value: "koteshwor", label: "Koteshwor" },
-    ]},
-    { group: "Bhaktapur", options: [
-      { value: "bhaktapur-center", label: "Bhaktapur Center" },
-      { value: "nagarkot", label: "Nagarkot" },
-      { value: "changu", label: "Changu" },
-    ]},
-    { group: "Lalitpur", options: [
-      { value: "pulchowk", label: "Pulchowk" },
-      { value: "jawalakhel", label: "Jawalakhel" },
-    ]},
-  ]
+
+  if (isLoadingStatus) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin h-12 w-12 border-4 border-orange-500 border-t-transparent rounded-full"></div>
+      </div>
+    )
+  }
+
+  if (existingStatus === 'pending' || existingStatus === 'verified') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+        <div className="max-w-md w-full text-center p-8 sm:p-12 bg-white rounded-[40px] shadow-2xl border border-slate-100">
+          <div className={`w-20 h-20 sm:w-24 sm:h-24 ${existingStatus === 'verified' ? 'bg-teal-100 text-teal-600' : 'bg-orange-100 text-orange-600'} rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8`}>
+            {existingStatus === 'verified' ? <CheckCircle2 className="w-12 h-12 sm:w-16 sm:h-16" /> : <Clock className="w-12 h-12 sm:w-16 sm:h-16" />}
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-4">
+            {existingStatus === 'verified' ? 'Already Registered!' : 'Application Pending'}
+          </h2>
+          <p className="text-slate-500 mb-8 sm:mb-10 font-medium text-sm sm:text-base">
+            {existingStatus === 'verified' 
+              ? 'You are already a verified professional. You can manage your services from the dashboard.' 
+              : 'Your application is currently being reviewed by our admin team. We will notify you once it is processed.'}
+          </p>
+          <div className="space-y-3">
+            <button
+              className="w-full py-3 sm:py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl transition-colors text-sm sm:text-base"
+              onClick={() => navigate(existingStatus === 'verified' ? '/professional-dashboard' : '/dashboard')}
+            >
+              {existingStatus === 'verified' ? 'Go to Professional Dashboard' : 'Go to User Dashboard'}
+            </button>
+            <button
+              className="w-full py-3 sm:py-4 bg-transparent border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-2xl transition-colors text-sm sm:text-base"
+              onClick={() => navigate('/')}
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (submitted) {
     return (
@@ -256,16 +369,25 @@ const ProfessionalRegistration = () => {
           <div className="w-20 h-20 sm:w-24 sm:h-24 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8 text-teal-600 animate-bounce">
             <CheckCircle2 className="w-12 h-12 sm:w-16 sm:h-16" />
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-4">Registration Complete!</h2>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-4">Application Submitted!</h2>
           <p className="text-slate-500 mb-8 sm:mb-10 font-medium text-sm sm:text-base">
-            Your profile is now active and visible on our platform. You can start receiving job requests immediately!
+            Your registration request has been sent to our admin team for verification.
+            Once approved, your professional profile will be visible on our home page.
           </p>
-          <button
-            className="w-full py-3 sm:py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl sm:rounded-2xl transition-colors text-sm sm:text-base"
-            onClick={() => (window.location.href = "/")}
-          >
-            Return to Home
-          </button>
+          <div className="space-y-3">
+            <button
+              className="w-full py-3 sm:py-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl sm:rounded-2xl transition-colors text-sm sm:text-base"
+              onClick={() => professionalId && navigate(`/professional/${professionalId}`)}
+            >
+              View Your Profile
+            </button>
+            <button
+              className="w-full py-3 sm:py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl sm:rounded-2xl transition-colors text-sm sm:text-base"
+              onClick={() => isLoggedIn ? navigate('/dashboard') : navigate('/')}
+            >
+              {isLoggedIn ? 'Go to Dashboard' : 'Return to Home'}
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -287,7 +409,7 @@ const ProfessionalRegistration = () => {
           <div className="lg:col-span-5 space-y-6 sm:space-y-8">
             <div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 leading-tight mb-4 sm:mb-6">
-                Turn your skills into <span className="text-orange-500 underline decoration-teal-400">Income</span>
+                Turn your skills into <span className="text-orange-500 underline decoration-orange-500">Income</span>
               </h1>
               <p className="text-base sm:text-lg text-slate-600 font-medium leading-relaxed">
                 Join Kamau Nepal's community of certified professionals. We help you find clients, manage your schedule,
@@ -299,15 +421,15 @@ const ProfessionalRegistration = () => {
             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] border border-slate-100 shadow-sm flex flex-col items-center">
               <div className="relative group cursor-pointer" onClick={triggerImageUpload}>
                 <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden bg-slate-100 border-4 border-white shadow-lg relative">
-                  {profileImage ? (
+                  {!isSubmitting && profileImage ? (
                     <img
                       src={profileImage}
                       alt="Profile Preview"
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                      <User className="w-12 h-12 sm:w-16 sm:h-16" />
+                    <div className="w-full h-full bg-white flex items-center justify-center">
+                      <Camera className="text-slate-300 w-8 h-8" />
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -322,12 +444,12 @@ const ProfessionalRegistration = () => {
                   <Camera className="w-3 h-3 sm:w-4 sm:h-4" />
                 </button>
               </div>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleImageChange} 
-                className="hidden" 
-                accept="image/*" 
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                className="hidden"
+                accept="image/*"
               />
               <div className="mt-3 sm:mt-4 text-center">
                 <h3 className="font-bold text-slate-900 text-sm sm:text-base">Profile Photo</h3>
@@ -338,12 +460,12 @@ const ProfessionalRegistration = () => {
             <div className="space-y-4 sm:space-y-6">
               {[
                 {
-                  icon: <Star className="text-orange-500 w-5 h-5 sm:w-6 sm:h-6" />,
+                  icon: <Star className="text-yellow-500 w-5 h-5 sm:w-6 sm:h-6" />,
                   title: "Build your reputation",
                   desc: "Get verified and receive ratings from real customers in Kathmandu & Bhaktapur.",
                 },
                 {
-                  icon: <ShieldCheck className="text-teal-600 w-5 h-5 sm:w-6 sm:h-6" />,
+                  icon: <ShieldCheck className="text-green-600 w-5 h-5 sm:w-6 sm:h-6" />,
                   title: "Work with trust",
                   desc: "Our secure platform ensures you connect with legitimate clients and get paid on time.",
                 },
@@ -362,7 +484,7 @@ const ProfessionalRegistration = () => {
 
             <div className="bg-orange-50 p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-[32px] border border-orange-100">
               <div className="flex items-start gap-3 sm:gap-4">
-                <Info className="text-orange-500 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6" />
+                <Info className="text-red-500 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6" />
                 <p className="text-orange-800 text-xs sm:text-sm font-bold leading-relaxed">
                   TIP: Uploading professional certifications and IDs speeds up the verification process.
                 </p>
@@ -386,7 +508,7 @@ const ProfessionalRegistration = () => {
                         required
                         type="text"
                         name="firstName"
-                        placeholder="Ram"
+                        placeholder="first Name"
                         className={`w-full bg-slate-50 border ${errors.firstName ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                         value={formData.firstName}
                         onChange={handleInputChange}
@@ -405,7 +527,7 @@ const ProfessionalRegistration = () => {
                         required
                         type="text"
                         name="lastName"
-                        placeholder="Bahadur"
+                        placeholder="Last Name"
                         className={`w-full bg-slate-50 border ${errors.lastName ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                         value={formData.lastName}
                         onChange={handleInputChange}
@@ -466,7 +588,7 @@ const ProfessionalRegistration = () => {
                         required
                         type="tel"
                         name="phone"
-                        placeholder="9801234567"
+                        placeholder="+977-**********"
                         className={`w-full bg-slate-50 border ${errors.phone ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                         value={formData.phone}
                         onChange={handleInputChange}
@@ -493,8 +615,8 @@ const ProfessionalRegistration = () => {
                         onChange={handleInputChange}
                       >
                         {serviceCategories.map((category) => (
-                          <option 
-                            key={category.value} 
+                          <option
+                            key={category.value}
                             value={category.value}
                             disabled={category.disabled}
                           >
@@ -513,39 +635,43 @@ const ProfessionalRegistration = () => {
                     )}
                   </div>
                   {/* Service Area */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 relative">
                     <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1">Service Area *</label>
                     <div className="relative">
-                      <MapPin className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 sm:w-5 sm:h-5" />
-                      <select
+                      <MapPin className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 sm:w-5 sm:h-5 z-10" />
+                      <input
                         required
+                        type="text"
                         name="serviceArea"
-                        className={`w-full bg-slate-50 border ${errors.serviceArea ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-8 sm:pr-10 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base appearance-none cursor-pointer`}
-                        value={formData.serviceArea}
-                        onChange={handleInputChange}
-                      >
-                        {serviceAreas.map((area, index) => (
-                          area.group ? (
-                            <optgroup key={index} label={area.group}>
-                              {area.options.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ) : (
-                            <option key={area.value} value={area.value} disabled={area.disabled}>
-                              {area.label}
-                            </option>
-                          )
-                        ))}
-                      </select>
-                      <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
+                        autoComplete="off"
+                        placeholder="Enter your service location"
+                        className={`w-full bg-slate-50 border ${errors.serviceArea ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
+                        value={locationSearch}
+                        onChange={(e) => handleLocationSearch(e.target.value)}
+                        onBlur={() => setTimeout(() => setShowLocationDropdown(false), 200)}
+                        onFocus={() => locationSearch.length >= 3 && setShowLocationDropdown(true)}
+                      />
+                      {isSearchingLocation && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <div className="animate-spin h-4 w-4 border-2 border-orange-500 border-t-transparent rounded-full"></div>
+                        </div>
+                      )}
                     </div>
+                    
+                    {showLocationDropdown && locationResults.length > 0 && (
+                      <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+                        {locationResults.map((result, index) => (
+                          <div
+                            key={index}
+                            className="px-4 py-3 hover:bg-orange-50 cursor-pointer border-b border-slate-50 last:border-none transition-colors"
+                            onClick={() => selectLocation(result)}
+                          >
+                            <p className="text-sm font-medium text-slate-800">{result.display_name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
                     {errors.serviceArea && (
                       <p className="text-xs text-red-500 ml-1">{errors.serviceArea}</p>
                     )}
@@ -558,12 +684,9 @@ const ProfessionalRegistration = () => {
                   <div className="relative">
                     <div className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">रु</div>
                     <input
-                      required
                       type="number"
                       name="hourlyWage"
-                      placeholder="e.g. 500"
-                      min="1"
-                      step="50"
+                      placeholder="Enter your hourly rate"
                       className={`w-full bg-slate-50 border ${errors.hourlyWage ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                       value={formData.hourlyWage}
                       onChange={handleInputChange}

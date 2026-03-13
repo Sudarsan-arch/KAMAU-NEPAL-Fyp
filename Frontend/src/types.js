@@ -35,4 +35,17 @@
  * @property {Date} updatedAt
  */
 
+/**
+ * @typedef {Object} ServiceRecord
+ * @property {string} id
+ * @property {string} title
+ * @property {string} company
+ * @property {string} provider
+ * @property {number} rating
+ * @property {string} category
+ * @property {string} date
+ * @property {string} dateAdded
+ * @property {number} cost
+ */
+
 export {};

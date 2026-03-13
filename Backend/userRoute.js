@@ -1,17 +1,21 @@
 import express from "express";
+import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import User from "./models/userModel.js";
+import AdminModel from "./models/adminModel.js";
+import ProfessionalModel from "./models/professionalModel.js";
 import { sendOtpEmail } from "./utils/sendOtp.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import axios from "axios";
 
 const router = express.Router();
 
 // Ensure uploads directory exists
-const uploadsDir = path.join(path.resolve(), "Backend", "uploads");
+const uploadsDir = path.join(path.resolve(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -21,7 +25,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const name = `${Date.now()}-${Math.round(Math.random()*1e9)}${ext}`;
+    const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
     cb(null, name);
   }
 });
@@ -144,7 +148,7 @@ router.post("/resend-otp", async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const newOtp = crypto.randomInt(100000, 999999).toString();
-    
+
     user.otp = newOtp;
     user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
@@ -168,30 +172,149 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    // First, check if it's a regular user
+    let user = await User.findOne({ email });
+    let role = "user";
 
+    if (!user) {
+      // If no user found, check if it's an admin (search by email or username)
+      const admin = await AdminModel.findOne({
+        $or: [{ email }, { username: email }],
+        isActive: true
+      });
+
+      if (admin) {
+        // Compare password for admin using bcryptjs
+        const isMatch = await bcrypt.compare(password, admin.password);
+        if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+
+        const token = jwt.sign(
+          {
+            id: admin._id,
+            username: admin.username,
+            role: admin.role,
+            permissions: admin.permissions
+          },
+          process.env.JWT_SECRET || "your-secret-key",
+          { expiresIn: "1d" }
+        );
+
+        return res.json({
+          message: "Admin login successful",
+          token,
+          userId: admin._id,
+          name: admin.fullName,
+          role: "admin",
+          verified: true,
+          data: {
+            id: admin._id,
+            username: admin.username,
+            email: admin.email,
+            fullName: admin.fullName,
+            role: admin.role,
+            permissions: admin.permissions
+          }
+        });
+      }
+
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Regular user verification
     if (!user.isVerified) {
       return res.status(401).json({ message: "Username does not exist or is not verified" });
     }
 
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+
+    // Check if this user is a verified professional
+    const professional = await ProfessionalModel.findOne({ 
+      $or: [{ email: user.email }, { userId: user._id }], 
+      verificationStatus: "verified" 
+    });
+    
     const token = jwt.sign(
-      { id: user._id },
+      { id: user._id, role: professional ? "professional" : "user" },
       process.env.JWT_SECRET || "your-secret-key",
       { expiresIn: "7d" }
     );
 
-    res.json({ 
-      message: "Login successful", 
+    res.json({
+      message: "Login successful",
       token,
       userId: user._id,
       name: user.name,
+      role: professional ? "professional" : "user",
       verified: user.isVerified
     });
 
+/* =========================
+   GOOGLE LOGIN / SIGNUP
+========================= */
+router.post("/google-login", async (req, res) => {
+  try {
+    const { token: googleToken } = req.body;
+
+    if (!googleToken) {
+      return res.status(400).json({ message: "Google token is required" });
+    }
+
+    // Fetch user info from Google using the access token
+    const googleUserRes = await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${googleToken}`);
+    const { email, name, picture, sub: googleId } = googleUserRes.data;
+
+    // Check if user already exists
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Create new user for first-time Google sign-in
+      user = await User.create({
+        name: name,
+        email: email,
+        password: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10), // Random password for social logins
+        address: "Address not provided (Google Login)",
+        profileImage: picture,
+        isVerified: true, // Google accounts are pre-verified
+        googleId: googleId
+      });
+      console.log("New user created via Google Login:", user._id);
+    } else {
+      // Update existing user with Google ID if not present
+      if (!user.googleId) {
+        user.googleId = googleId;
+        if (!user.profileImage) user.profileImage = picture;
+        user.isVerified = true;
+        await user.save();
+      }
+      console.log("Existing user logged in via Google:", user._id);
+    }
+
+    // Check if professional
+    const professional = await ProfessionalModel.findOne({ 
+      $or: [{ email: user.email }, { userId: user._id }], 
+      verificationStatus: "verified" 
+    });
+
+    // Generate platform JWT
+    const token = jwt.sign(
+      { id: user._id, role: professional ? "professional" : "user" },
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      message: "Google login successful",
+      token,
+      userId: user._id,
+      name: user.name,
+      role: professional ? "professional" : "user",
+      verified: true
+    });
+
   } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Google login error:", err);
+    res.status(500).json({ message: "Google authentication failed", error: err.message });
   }
 });
 
@@ -214,42 +337,42 @@ router.put("/:userId/profile", upload.single("profileImage"), async (req, res) =
     if (fullName) user.name = fullName;
     if (email) user.email = email;
     if (phone) user.phone = phone;
-    if (location) user.location = location;
+    if (location) {
+      user.address = location;
+      user.formattedAddress = location;
+    }
     if (username) user.username = username;
 
-    // Handle profile image - either from base64 or file upload
-    if (profileImage && profileImage.startsWith("data:")) {
-      console.log("Saving profile image from base64 (length:", profileImage.length, ")");
-      // Save base64 image directly
-      user.profileImage = profileImage;
-    } else if (req.file) {
-      console.log("Saving profile image from file upload");
-      // Convert uploaded file to base64
-      const fs = require("fs");
-      const imagePath = req.file.path;
-      const imageData = fs.readFileSync(imagePath);
-      const base64Image = `data:${req.file.mimetype};base64,${imageData.toString("base64")}`;
-      user.profileImage = base64Image;
-      console.log("Image converted to base64 (length:", base64Image.length, ")");
-      
-      // Optionally delete the uploaded file after converting to base64
-      fs.unlinkSync(imagePath);
+    // Handle profile image
+    if (req.file) {
+      // If a file was uploaded via multer
+      console.log("Saving profile image from uploaded file:", req.file.path);
+      const imageData = fs.readFileSync(req.file.path);
+      user.profileImage = `data:${req.file.mimetype};base64,${imageData.toString("base64")}`;
+
+      // Delete temporary file
+      fs.unlinkSync(req.file.path);
       console.log("Temporary file deleted");
+    } else if (profileImage && profileImage.startsWith("data:")) {
+      // If a base64 string was sent in the body
+      console.log("Saving profile image from base64 string");
+      user.profileImage = profileImage;
     } else {
-      console.log("No profile image data provided, keeping existing image");
+      console.log("No new profile image provided");
     }
 
     await user.save();
     console.log("User profile saved successfully");
 
-    res.json({ 
-      message: "Profile updated successfully", 
+    res.json({
+      message: "Profile updated successfully",
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         phone: user.phone,
         location: user.location,
+        formattedAddress: user.formattedAddress,
         hasProfileImage: !!user.profileImage,
       }
     });
@@ -279,7 +402,7 @@ router.get("/:userId/profile", async (req, res) => {
         location: user.location,
         username: user.username,
         profileImage: user.profileImage,
-        address: user.address,
+        formattedAddress: user.formattedAddress,
         isVerified: user.isVerified,
         createdAt: user.createdAt,
       },
@@ -289,6 +412,15 @@ router.get("/:userId/profile", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch profile" });
   }
 });
+
+/* =========================
+   LOCATION UPDATES
+========================= */
+import { updateLocation, getNearbyProfessionals } from "./controllers/locationController.js";
+import { verifyToken } from "./authMiddleware.js";
+
+router.put("/update-location", verifyToken, updateLocation);
+router.get("/nearby-professionals", verifyToken, getNearbyProfessionals);
 
 export default router;
 

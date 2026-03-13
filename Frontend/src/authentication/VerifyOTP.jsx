@@ -61,7 +61,7 @@ const VerifyOTP = () => {
     try {
       setLoading(true);
       console.log('Sending OTP verification request...');
-      const response = await axios.post('http://localhost:5000/api/users/verify-otp', {
+      const response = await axios.post('/api/users/verify-otp', {
         userId,
         otp: otpCode,
       });
@@ -95,7 +95,7 @@ const VerifyOTP = () => {
     if (!userId) return alert('User not found. Please signup again.');
     setTimer(60);
     try {
-      await axios.post('http://localhost:5000/api/users/resend-otp', { userId });
+      await axios.post('/api/users/resend-otp', { userId });
       alert('New OTP sent!');
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to resend OTP. Try again.');
