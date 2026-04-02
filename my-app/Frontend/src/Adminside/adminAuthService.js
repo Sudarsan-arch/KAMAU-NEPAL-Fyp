@@ -160,7 +160,7 @@ export const getStoredAdminUser = () => {
   return user ? JSON.parse(user) : null;
 };
 
-export default {
+const authService = {
   adminLogin,
   verifyAdminToken,
   adminLogout,
@@ -170,3 +170,5 @@ export default {
   isAdminLoggedIn,
   getStoredAdminUser
 };
+
+export default authService;

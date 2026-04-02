@@ -1,5 +1,6 @@
 import Review from "../models/reviewModel.js";
 import Professional from "../models/professionalModel.js";
+import Booking from "../models/bookingModel.js";
 
 /**
  * Create a new review
@@ -10,6 +11,20 @@ export const createReview = async (req, res) => {
 
         if (!professionalId || !userId || !rating || !comment) {
             return res.status(400).json({ success: false, message: "All fields are required" });
+        }
+
+        // Security Check: Ensure user has a confirmed or completed booking with this professional
+        const booking = await Booking.findOne({
+            userId,
+            professionalId,
+            status: { $in: ["Confirmed", "Completed"] }
+        });
+
+        if (!booking) {
+            return res.status(403).json({ 
+                success: false, 
+                message: "You can only review a professional after their service is approved or completed." 
+            });
         }
 
         // Check if review already exists

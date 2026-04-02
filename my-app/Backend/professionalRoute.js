@@ -12,7 +12,8 @@ import {
   verifyProfessional,
   deleteProfessionalProfile,
   getProfessionalByUsername,
-  getMyProfessionalProfile
+  getMyProfessionalProfile,
+  getServiceCategories
 } from './controllers/professionalController.js';
 import { verifyToken } from './authMiddleware.js';
 
@@ -58,7 +59,8 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 30 * 1024 * 1024 // 30MB limit
+    fileSize: 30 * 1024 * 1024, // 30MB limit
+    fieldSize: 50 * 1024 * 1024  // 50MB for base64 strings/fields
   }
 });
 
@@ -79,6 +81,10 @@ router.get('/me', verifyToken, getMyProfessionalProfile);
 // Get all professionals (verified only by default)
 // GET /api/professionals?page=1&limit=10&serviceCategory=plumbing&serviceArea=thamel&verificationStatus=verified
 router.get('/', getAllProfessionals);
+
+// Get all unique service categories
+// GET /api/professionals/categories
+router.get('/categories', getServiceCategories);
 
 // Search professionals by filters
 // GET /api/professionals/search?serviceCategory=plumbing&serviceArea=thamel

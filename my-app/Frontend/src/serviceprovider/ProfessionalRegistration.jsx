@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import axios from "axios"
 import { useNavigate } from "react-router-dom"
 import {
   ArrowLeft,
@@ -18,6 +19,8 @@ import {
   FileText,
   Trash2,
   Clock,
+  Plus,
+  X,
 } from "lucide-react"
 
 const ProfessionalRegistration = () => {
@@ -37,7 +40,10 @@ const ProfessionalRegistration = () => {
     bio: "",
     latitude: "",
     longitude: "",
-    formattedAddress: ""
+    formattedAddress: "",
+    jobType: "full-time",
+    tools: [],
+    availability: [{ day: "Monday", startTime: "09:00", endTime: "18:00" }]
   })
 
   const [locationSearch, setLocationSearch] = useState("")
@@ -83,6 +89,49 @@ const ProfessionalRegistration = () => {
     fetchStatus()
   }, [isLoggedIn])
 
+  useEffect(() => {
+    // Attempt to pre-populate form with existing user data
+    const userId = localStorage.getItem('userId');
+    const token = localStorage.getItem('token');
+    
+    if (userId && token) {
+      const fetchUserData = async () => {
+        try {
+          const res = await axios.get(`/api/users/${userId}/profile`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.data.success && res.data.user) {
+            const user = res.data.user;
+            const nameParts = (user.name || '').split(' ');
+            setFormData(prev => ({
+              ...prev,
+              firstName: nameParts[0] || '',
+              lastName: nameParts.slice(1).join(' ') || '',
+              email: user.email || '',
+              phone: user.phone || '',
+              username: user.username || '',
+              serviceArea: user.formattedAddress || user.location || ''
+            }));
+          }
+        } catch (err) {
+          console.error("Failed to pre-populate registration form:", err);
+          // Fallback to localStorage if API fails
+          const name = localStorage.getItem('userName') || '';
+          const nameParts = name.split(' ');
+          setFormData(prev => ({
+            ...prev,
+            firstName: nameParts[0] || '',
+            lastName: nameParts.slice(1).join(' ') || '',
+            email: localStorage.getItem('userEmail') || '',
+            phone: localStorage.getItem('userPhone') || '',
+            serviceArea: localStorage.getItem('userLocation') || ''
+          }));
+        }
+      };
+      fetchUserData();
+    }
+  }, []);
+
   const validateForm = () => {
     const newErrors = {}
 
@@ -103,7 +152,11 @@ const ProfessionalRegistration = () => {
     }
 
     if (!formData.serviceCategory) newErrors.serviceCategory = "Service category is required"
-    if (!formData.serviceArea) newErrors.serviceArea = "Service area is required"
+    
+    const isFreelancerType = ['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(formData.serviceCategory);
+    if (!isFreelancerType && !formData.serviceArea) {
+      newErrors.serviceArea = "Service area is required"
+    }
 
     if (formData.hourlyWage && parseFloat(formData.hourlyWage) < 0) {
       newErrors.hourlyWage = "Hourly wage cannot be negative"
@@ -129,30 +182,69 @@ const ProfessionalRegistration = () => {
     }
   }
 
-  const handleLocationSearch = async (query) => {
-    setLocationSearch(query)
-    if (errors.serviceArea) {
-      setErrors(prev => ({ ...prev, serviceArea: undefined }))
-    }
-
-    if (query.length < 3) {
-      setLocationResults([])
-      setShowLocationDropdown(false)
-      return
-    }
-
-    setIsSearchingLocation(true)
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=np`)
-      const data = await response.json()
-      setLocationResults(data)
-      setShowLocationDropdown(true)
-    } catch (error) {
-      console.error("Location search error:", error)
-    } finally {
-      setIsSearchingLocation(false)
-    }
+  const addAvailability = () => {
+    setFormData(prev => ({
+      ...prev,
+      availability: [...prev.availability, { day: "Monday", startTime: "09:00", endTime: "18:00" }]
+    }))
   }
+
+  const removeAvailability = (index) => {
+    if (formData.availability.length <= 1) return
+    setFormData(prev => ({
+      ...prev,
+      availability: prev.availability.filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleAvailabilityChange = (index, field, value) => {
+    const newAvailability = [...formData.availability]
+    newAvailability[index][field] = value
+    setFormData(prev => ({ ...prev, availability: newAvailability }))
+  }
+
+  // Debounce location search
+  useEffect(() => {
+    if (locationSearch.length < 3) {
+      setLocationResults([]);
+      setShowLocationDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      performLocationSearch(locationSearch);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [locationSearch]);
+
+  const performLocationSearch = async (query) => {
+    setIsSearchingLocation(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=np`,
+        {
+          headers: {
+            'User-Agent': 'KamauNepalApp/1.0'
+          }
+        }
+      );
+      const data = await response.json();
+      setLocationResults(data);
+      setShowLocationDropdown(true);
+    } catch (error) {
+      console.error("Location search error:", error);
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
+
+  const handleLocationSearch = (query) => {
+    setLocationSearch(query);
+    if (errors.serviceArea) {
+      setErrors(prev => ({ ...prev, serviceArea: undefined }));
+    }
+  };
 
   const selectLocation = (location) => {
     setFormData(prev => ({
@@ -255,7 +347,11 @@ const ProfessionalRegistration = () => {
     const submitData = new FormData()
 
     Object.entries(formData).forEach(([key, value]) => {
-      submitData.append(key, value)
+      if (key === 'availability' || key === 'tools') {
+        submitData.append(key, JSON.stringify(value))
+      } else {
+        submitData.append(key, value)
+      }
     })
 
     // Append the actual profile image file if it exists
@@ -317,6 +413,10 @@ const ProfessionalRegistration = () => {
     { value: "gardening", label: "🌿 Gardening" },
     { value: "mechanic", label: "🔩 Mechanic" },
     { value: "tutoring", label: "📚 Tutoring" },
+    { value: "freelancer", label: "💻 Freelancer" },
+    { value: "graphic_designer", label: "🎨 Graphic Designer" },
+    { value: "logo_designer", label: "✨ Logo Designer" },
+    { value: "developer", label: "⌨️ Developer" },
   ]
 
 
@@ -636,15 +736,20 @@ const ProfessionalRegistration = () => {
                   </div>
                   {/* Service Area */}
                   <div className="space-y-2 relative">
-                    <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1">Service Area *</label>
+                    <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1 flex justify-between items-center">
+                      <span>Service Area {['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(formData.serviceCategory) ? '(Optional)' : '*'}</span>
+                      {['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(formData.serviceCategory) && (
+                        <span className="text-[10px] text-teal-600 font-black uppercase tracking-widest italic animate-pulse">Remote Work Optimized</span>
+                      )}
+                    </label>
                     <div className="relative">
                       <MapPin className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 sm:w-5 sm:h-5 z-10" />
                       <input
-                        required
+                        required={!['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(formData.serviceCategory)}
                         type="text"
                         name="serviceArea"
                         autoComplete="off"
-                        placeholder="Enter your service location"
+                        placeholder={['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(formData.serviceCategory) ? "Hattisar, Kathmandu (Optional)" : "Enter your service location"}
                         className={`w-full bg-slate-50 border ${errors.serviceArea ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                         value={locationSearch}
                         onChange={(e) => handleLocationSearch(e.target.value)}
@@ -678,15 +783,56 @@ const ProfessionalRegistration = () => {
                   </div>
                 </div>
 
-                {/* Hourly Wage */}
+                {/* Tools & Technologies - Only for Freelancer/Dev/Designer */}
+                {['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(formData.serviceCategory) && (
+                  <div className="space-y-3 pt-4 border-t border-slate-50 animate-in fade-in duration-500">
+                    <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1">Tools & Technologies (Press Enter to add)</label>
+                    <div className="flex flex-wrap gap-2 p-2 min-h-[50px] bg-slate-50 border border-slate-200 rounded-2xl">
+                      {formData.tools.map((tag, idx) => (
+                        <span key={idx} className="bg-teal-500 text-white px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 group transition-all hover:pr-1">
+                          {tag}
+                          <button 
+                            type="button" 
+                            onClick={() => setFormData(p => ({ ...p, tools: p.tools.filter((_, i) => i !== idx) }))}
+                            className="hover:text-red-200"
+                          >
+                             <Plus size={14} className="rotate-45" />
+                          </button>
+                        </span>
+                      ))}
+                      <input 
+                        type="text"
+                        placeholder={formData.tools.length === 0 ? "e.g. Photoshop, Figma, React, Node.js..." : "Add more..."}
+                        className="bg-transparent border-none outline-none flex-grow min-w-[150px] font-medium text-slate-700 text-sm p-1.5"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && e.target.value.trim()) {
+                            e.preventDefault();
+                            if (!formData.tools.includes(e.target.value.trim().toUpperCase())) {
+                               setFormData(prev => ({ 
+                                 ...prev, 
+                                 tools: [...prev.tools, e.target.value.trim().toUpperCase()] 
+                               }));
+                            }
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Hourly Wage / Fixed Budget */}
                 <div className="space-y-2">
-                  <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1">Hourly Wage (रु) *</label>
+                  <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1">
+                    {['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(formData.serviceCategory) ? 'Fixed Budget / Project Base (रु) *' : 'Hourly Wage (रु) *'}
+                  </label>
                   <div className="relative">
                     <div className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">रु</div>
                     <input
+                      required
                       type="number"
                       name="hourlyWage"
-                      placeholder="Enter your hourly rate"
+                      placeholder={['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(formData.serviceCategory) ? "Enter minimum project budget" : "Enter your hourly rate"}
                       className={`w-full bg-slate-50 border ${errors.hourlyWage ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                       value={formData.hourlyWage}
                       onChange={handleInputChange}
@@ -712,6 +858,105 @@ const ProfessionalRegistration = () => {
                     {formData.bio.length}/500 characters
                   </div>
                 </div>
+
+                {/* Job Type Section */}
+                <div className="space-y-3 pt-2 sm:pt-4 border-t border-slate-50">
+                  <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1">Preference *</label>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, jobType: 'full-time' }))}
+                      className={`flex-1 py-3 sm:py-4 rounded-2xl border-2 font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all ${
+                        formData.jobType === 'full-time' 
+                          ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-100 scale-[1.02]' 
+                          : 'bg-white border-slate-100 text-slate-400 hover:border-orange-200'
+                      }`}
+                    >
+                      Full-Time
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, jobType: 'part-time' }))}
+                      className={`flex-1 py-3 sm:py-4 rounded-2xl border-2 font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all ${
+                        formData.jobType === 'part-time' 
+                          ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-100 scale-[1.02]' 
+                          : 'bg-white border-slate-100 text-slate-400 hover:border-orange-200'
+                      }`}
+                    >
+                      Part-Time
+                    </button>
+                  </div>
+                </div>
+
+                {/* Availability Section - Only show if Part-Time */}
+                {formData.jobType === 'part-time' && (
+                  <div className="space-y-4 pt-2 sm:pt-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1 flex items-center gap-2">
+                        <Clock size={16} className="text-orange-500" /> Your Availability *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addAvailability}
+                        className="text-xs sm:text-sm font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 transition-colors"
+                      >
+                        <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> Add Slot
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {formData.availability.map((slot, index) => (
+                        <div key={index} className="flex flex-wrap sm:flex-nowrap items-end gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl group transition-all hover:border-orange-200">
+                          <div className="flex-1 min-w-[140px] space-y-1.5">
+                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Day</label>
+                            <select
+                              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-500 outline-none"
+                              value={slot.day}
+                              onChange={(e) => handleAvailabilityChange(index, 'day', e.target.value)}
+                            >
+                              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekdays', 'Weekends', 'Daily'].map(day => (
+                                <option key={day} value={day}>{day}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="flex-1 min-w-[100px] space-y-1.5">
+                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">From</label>
+                            <input
+                              type="time"
+                              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-500 outline-none"
+                              value={slot.startTime}
+                              onChange={(e) => handleAvailabilityChange(index, 'startTime', e.target.value)}
+                            />
+                          </div>
+
+                          <div className="flex-1 min-w-[100px] space-y-1.5">
+                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">To</label>
+                            <input
+                              type="time"
+                              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-500 outline-none"
+                              value={slot.endTime}
+                              onChange={(e) => handleAvailabilityChange(index, 'endTime', e.target.value)}
+                            />
+                          </div>
+
+                          {formData.availability.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeAvailability(index)}
+                              className="p-2 text-slate-400 hover:text-red-500 transition-colors mb-0.5"
+                            >
+                              <X size={20} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-medium ml-1">
+                      Set your working hours so clients know when they can book your services.
+                    </p>
+                  </div>
+                )}
 
                 {/* Verification Documents Section */}
                 <div className="space-y-3 sm:space-y-4 pt-2 sm:pt-4">

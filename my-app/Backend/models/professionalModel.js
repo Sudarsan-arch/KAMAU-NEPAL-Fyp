@@ -38,7 +38,11 @@ const professionalSchema = new mongoose.Schema({
   serviceCategory: {
     type: String,
     required: true,
-    enum: ['plumbing', 'electrical', 'carpentry', 'cleaning', 'painting', 'gardening', 'mechanic', 'tutoring'],
+    enum: ['plumbing', 'electrical', 'carpentry', 'cleaning', 'painting', 'gardening', 'mechanic', 'tutoring', 'freelancer', 'graphic_designer', 'logo_designer', 'developer'],
+  },
+  tools: {
+    type: [String],
+    default: []
   },
   serviceArea: {
     type: String,
@@ -109,6 +113,16 @@ const professionalSchema = new mongoose.Schema({
     coordinates: { type: [Number], default: [0, 0] }
   },
   formattedAddress: { type: String },
+  jobType: {
+    type: String,
+    enum: ['part-time', 'full-time'],
+    default: 'full-time'
+  },
+  availability: [{
+    day: { type: String, required: true },
+    startTime: { type: String, required: true },
+    endTime: { type: String, required: true }
+  }],
   createdAt: {
     type: Date,
     default: Date.now

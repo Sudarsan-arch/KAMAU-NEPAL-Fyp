@@ -162,3 +162,56 @@ export const getBookingStats = async (userId) => {
     throw error;
   }
 };
+
+/**
+ * Update payment status
+ */
+export const updatePaymentStatus = async (bookingId, paymentStatus, paymentMethod = "None") => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}/payment`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`
+      },
+      body: JSON.stringify({ paymentStatus, paymentMethod })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to update payment status");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error updating payment status:", error);
+    throw error;
+  }
+};
+
+/**
+ * Check if a user has a confirmed/completed booking with a professional
+ */
+export const checkUserBookingStatus = async (userId, professionalId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bookings/user/${userId}/professional/${professionalId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to check booking status");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error checking booking status:", error);
+    throw error;
+  }
+};

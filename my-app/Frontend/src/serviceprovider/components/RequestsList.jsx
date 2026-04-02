@@ -2,7 +2,7 @@ import React from 'react';
 import RequestCard from './RequestCard';
 import { Bell } from 'lucide-react';
 
-const RequestsList = ({ requests, onAction, loading, error, title = "Active Requests" }) => {
+const RequestsList = ({ requests, onAction, onDownloadPDF, loading, error, title = "Active Requests" }) => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -33,7 +33,7 @@ const RequestsList = ({ requests, onAction, loading, error, title = "Active Requ
       <div className="space-y-4 max-h-[calc(100vh-250px)] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
         {requests.length > 0 ? (
           requests.map((req) => (
-            <RequestCard key={req._id} request={req} onAction={onAction} />
+            <RequestCard key={req._id} request={req} onAction={onAction} onDownloadPDF={onDownloadPDF} />
           ))
         ) : (
           <div className="bg-white p-20 rounded-[40px] border border-slate-100 text-center shadow-sm relative overflow-hidden group">

@@ -7,31 +7,9 @@ import {
 } from 'lucide-react';
 import Logo from '../Logo';
 import axios from 'axios';
+import Button from '../components/Button';
 
-// --- Internal Helper: Button ---
-const Button = ({
-  children, variant = 'primary', size = 'md', className = '', ...props
-}) => {
-  const baseStyles = 'inline-flex items-center justify-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl';
-  const variants = {
-    primary: 'bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-500 shadow-md hover:shadow-lg transform hover:-translate-y-0.5',
-    secondary: 'bg-teal-600 text-white hover:bg-teal-700 focus:ring-teal-500 shadow-md hover:shadow-lg transform hover:-translate-y-0.5',
-    outline: 'border-2 border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 hover:border-slate-300 focus:ring-slate-400',
-    ghost: 'bg-transparent text-teal-700 hover:bg-teal-50 focus:ring-teal-200',
-    danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500 shadow-md'
-  };
-  const sizes = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-5 py-2.5 text-base',
-    lg: 'px-8 py-3.5 text-lg',
-    icon: 'p-2'
-  };
-  return (
-    <button className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`} {...props}>
-      {children}
-    </button>
-  );
-};
+
 
 const HomePage = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -39,6 +17,8 @@ const HomePage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [professionals, setProfessionals] = useState([]);
   const [loadingProfessionals, setLoadingProfessionals] = useState(true);
+  const [categories, setCategories] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const navigate = useNavigate();
 
   const userName = localStorage.getItem('userName') || 'Professional User';
@@ -125,7 +105,9 @@ const HomePage = () => {
             reviews: prof.totalReviews || 0,
             verified: prof.isVerified,
             avatar: "👨‍💼",
-            hourlyRate: `रू ${prof.hourlyWage}/hr`,
+            hourlyRate: ['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(prof.serviceCategory) 
+              ? `रू ${prof.hourlyWage} (Fixed)` 
+              : `रू ${prof.hourlyWage}/hr`,
             profileImage: prof.profileImage
           }));
 
@@ -167,18 +149,59 @@ const HomePage = () => {
     fetchProfessionals();
   }, []);
 
-  const services = [
-    { name: "Plumber", icon: "🔧", category: "Construction" },
-    { name: "Dog Walker", icon: "🐕", category: "Pets" },
-    { name: "Cleaner", icon: "🧹", category: "Maintenance" },
-    { name: "Carpenter", icon: "🪵", category: "Construction" },
-    { name: "Robotics", icon: "🤖", category: "Tech" },
-    { name: "Gas Fitter", icon: "⛽", category: "Construction" },
-    { name: "Plumbing", icon: "🚰", category: "Construction" },
-    { name: "Carpentry", icon: "🛠️", category: "Construction" },
-    { name: "Car Repair", icon: "🚗", category: "Auto" },
-    { name: "Mechanic", icon: "⚙️", category: "Auto" },
-  ];
+  // Fetch dynamic categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoadingCategories(true);
+        const response = await axios.get('/api/professionals/categories');
+        if (response.data.success) {
+          // Map categories to icons/images
+          const iconMap = {
+            'plumber': { type: 'image', value: '/assets/categories/plumbing.png' },
+            'plumbing': { type: 'image', value: '/assets/categories/plumbing.png' },
+            'dog walker': { type: 'emoji', value: '🐕' },
+            'cleaner': { type: 'image', value: '/assets/categories/cleaning.png' },
+            'cleaning': { type: 'image', value: '/assets/categories/cleaning.png' },
+            'carpenter': { type: 'image', value: '/assets/categories/carpentry.png' },
+            'carpentry': { type: 'image', value: '/assets/categories/carpentry.png' },
+            'robotics': { type: 'emoji', value: '🤖' },
+            'gas fitter': { type: 'emoji', value: '⛽' },
+            'car repair': { type: 'image', value: '/assets/categories/mechanic.png' },
+            'mechanic': { type: 'image', value: '/assets/categories/mechanic.png' },
+            'electrician': { type: 'image', value: '/assets/categories/electrician.png' },
+            'painter': { type: 'emoji', value: '🎨' },
+            'gardener': { type: 'image', value: '/assets/categories/gardening.png' },
+            'gardening': { type: 'image', value: '/assets/categories/gardening.png' },
+            'tutor': { type: 'emoji', value: '📚' },
+            'tutoring': { type: 'emoji', value: '📚' },
+            'freelancer': { type: 'emoji', value: '💻' },
+            'graphic_designer': { type: 'emoji', value: '🎨' },
+            'logo_designer': { type: 'emoji', value: '✨' },
+            'developer': { type: 'emoji', value: '⌨️' }
+          };
+
+          const dynamicCategories = response.data.data.map(cat => {
+            const config = iconMap[cat.toLowerCase()] || { type: 'emoji', value: '💼' };
+            return {
+              name: cat.charAt(0).toUpperCase() + cat.slice(1),
+              icon: config.value,
+              iconType: config.type,
+              id: cat
+            };
+          });
+
+          setCategories(dynamicCategories);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, []);
+
 
   const providers = [
     { name: "Dileep Sagar", title: "Talent Searcher", location: "Kathmandu, Nepal", rating: 4.8, reviews: 127, verified: true, avatar: "🧑‍💼", hourlyRate: "रू 500/hr" },
@@ -336,11 +359,11 @@ const HomePage = () => {
                     <p className="text-sm text-slate-500 mb-4">Set up your profile and reach top companies searching for your skills.</p>
                     <Button variant="secondary" size="sm" className="w-full" onClick={() => navigate('/explore-jobs')}>Explore Professionals </Button>
                   </div>
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
                     <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center text-orange-700 mb-4"><UserCircle size={20} /></div>
                     <h3 className="font-bold text-slate-900 mb-1">Need to Hire?</h3>
                     <p className="text-sm text-slate-500 mb-4">Find verified service providers with high ratings and local expertise.</p>
-                    <Button variant="primary" size="sm" className="w-full">Start Hiring</Button>
+                    <Button variant="primary" size="sm" className="w-full" onClick={() => navigate('/explore-jobs')}>Start Hiring</Button>
                   </div>
                 </div>
               </div>
@@ -348,7 +371,7 @@ const HomePage = () => {
                 <div className="relative">
                   <div className="absolute -top-10 -left-10 w-40 h-40 bg-orange-200/40 rounded-3xl rotate-12 -z-10" />
                   <div className="absolute -bottom-10 -right-10 w-60 h-60 bg-teal-200/40 rounded-full -z-10" />
-                  <img src="https://picsum.photos/seed/kamau/600/800" alt="Professional Worker" className="rounded-[40px] shadow-2xl border-[12px] border-white object-cover aspect-[4/5] w-full" />
+                  <img src="/assets/homepage.jpg" alt="Professional Worker" className="rounded-[40px] shadow-2xl border-[12px] border-white object-cover aspect-[4/5] w-full" />
                   <div className="absolute bottom-8 -left-8 bg-white p-4 rounded-2xl shadow-xl border border-slate-100 animate-bounce">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-teal-500 flex items-center justify-center text-white"><ShieldCheck size={24} /></div>
@@ -373,13 +396,31 @@ const HomePage = () => {
             <h2 className="text-3xl md:text-4xl font-black text-orange-500 mb-4 tracking-tight">What do you need today?</h2>
             <p className="text-slate-500 max-w-2xl mx-auto font-medium mb-16">Browse through our most popular service categories and find exactly who you're looking for.</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {services.map((service, idx) => (
-                <button key={idx} className="group flex flex-col items-center p-8 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-white hover:border-teal-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                  <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">{service.icon}</div>
-                  <p className="font-bold text-slate-800 text-center">{service.name}</p>
-                  <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">{service.category}</span>
-                </button>
-              ))}
+              {loadingCategories ? (
+                [...Array(5)].map((_, i) => (
+                  <div key={i} className="animate-pulse bg-slate-100 h-32 rounded-3xl" />
+                ))
+              ) : categories.length > 0 ? (
+                categories.map((category, idx) => (
+                  <button 
+                    key={idx} 
+                    onClick={() => navigate('/explore-jobs', { state: { searchQuery: category.id } })}
+                    className="group flex flex-col items-center p-8 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-white hover:border-teal-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden"
+                  >
+                    <div className="w-20 h-20 mb-4 group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
+                      {category.iconType === 'image' ? (
+                        <img src={category.icon} alt={category.name} className="w-full h-full object-contain" />
+                      ) : (
+                        <span className="text-5xl">{category.icon}</span>
+                      )}
+                    </div>
+                    <p className="font-bold text-slate-800 text-center">{category.name}</p>
+                    <span className="text-[10px] uppercase tracking-widest text-teal-600 font-bold mt-1">Available Now</span>
+                  </button>
+                ))
+              ) : (
+                <div className="col-span-full py-8 text-slate-400 font-medium">No active categories found</div>
+              )}
             </div>
           </div>
         </section>
@@ -392,7 +433,13 @@ const HomePage = () => {
                 <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-4 tracking-tight">Featured Professionals</h2>
                 <p className="text-slate-500 font-medium">Top-rated individuals verified by our team for excellence.</p>
               </div>
-              <Button variant="outline" className="hidden md:flex gap-2">View All Experts <MoreHorizontal size={18} /></Button>
+              <Button 
+                variant="outline" 
+                className="hidden md:flex gap-2"
+                onClick={() => navigate('/explore-jobs')}
+              >
+                View All Experts <MoreHorizontal size={18} />
+              </Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {loadingProfessionals ? (

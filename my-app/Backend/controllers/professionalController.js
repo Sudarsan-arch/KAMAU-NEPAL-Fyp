@@ -24,14 +24,19 @@ export const registerProfessional = async (req, res) => {
       latitude,
       longitude,
       formattedAddress,
+      jobType,
+      availability,
+      tools,
       userId: bodyUserId
     } = req.body;
 
     // Use userId from authenticated user if available, otherwise from body
     const userId = req.user?.id || bodyUserId;
 
+    const isFreelancerType = ['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(serviceCategory);
+    
     // Validate required fields
-    if (!firstName || !lastName || !username || !email || !phone || !serviceCategory || !serviceArea) {
+    if (!firstName || !lastName || !username || !email || !phone || !serviceCategory || (!isFreelancerType && !serviceArea)) {
       console.log('❌ Missing required fields');
       console.log('Received:', { firstName, lastName, username, email, phone, serviceCategory, serviceArea });
       return res.status(400).json({
@@ -119,6 +124,9 @@ export const registerProfessional = async (req, res) => {
         coordinates: [parseFloat(longitude) || 0, parseFloat(latitude) || 0]
       },
       formattedAddress: formattedAddress || serviceArea,
+      jobType: jobType || 'full-time',
+      availability: typeof availability === 'string' ? JSON.parse(availability) : availability,
+      tools: typeof tools === 'string' ? JSON.parse(tools) : (Array.isArray(tools) ? tools : []),
       verificationStatus: 'pending',
       isVerified: false,
       isActive: true,
@@ -277,7 +285,7 @@ export const searchProfessionals = async (req, res) => {
 export const updateProfessionalProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, bio, hourlyWage, serviceArea, phone, formattedAddress } = req.body;
+    const { firstName, lastName, bio, hourlyWage, serviceArea, phone, formattedAddress, availability } = req.body;
 
     const updateData = {};
 
@@ -288,6 +296,9 @@ export const updateProfessionalProfile = async (req, res) => {
     if (serviceArea) updateData.serviceArea = serviceArea;
     if (phone) updateData.phone = phone;
     if (formattedAddress) updateData.formattedAddress = formattedAddress;
+    if (availability) {
+      updateData.availability = typeof availability === 'string' ? JSON.parse(availability) : availability;
+    }
 
     // Handle profile image update
     if (req.files && req.files.profileImage) {
@@ -305,6 +316,27 @@ export const updateProfessionalProfile = async (req, res) => {
         success: false,
         message: 'Professional profile not found'
       });
+    }
+
+    // SYNC: Also update linked User profile if it has userId
+    if (updatedProfessional.userId) {
+      try {
+        const { default: User } = await import('../models/userModel.js');
+        const userUpdate = {};
+        if (firstName || lastName) {
+          userUpdate.name = `${firstName || updatedProfessional.firstName} ${lastName || updatedProfessional.lastName}`.trim();
+        }
+        if (phone) userUpdate.phone = phone;
+        if (formattedAddress || serviceArea) {
+          userUpdate.address = formattedAddress || serviceArea;
+          userUpdate.formattedAddress = formattedAddress || serviceArea;
+        }
+        
+        await User.findByIdAndUpdate(updatedProfessional.userId, { $set: userUpdate });
+        console.log("Synchronized User profile from Professional update for userId:", updatedProfessional.userId);
+      } catch (err) {
+        console.error('Failed to sync User from Professional update:', err);
+      }
     }
 
     return res.status(200).json({
@@ -515,6 +547,24 @@ export const getMyProfessionalProfile = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch professional profile',
+      error: error.message
+    });
+  }
+};
+// Get all unique service categories
+export const getServiceCategories = async (req, res) => {
+  try {
+    const categories = await ProfessionalModel.distinct('serviceCategory', { isVerified: true });
+    
+    return res.status(200).json({
+      success: true,
+      data: categories
+    });
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch categories',
       error: error.message
     });
   }

@@ -38,6 +38,17 @@ export const createBooking = async (req, res) => {
       });
     }
 
+    // Check if user is trying to book themselves
+    if (professionalId) {
+      const professional = await Professional.findById(professionalId);
+      if (professional && professional.userId && professional.userId.toString() === userId) {
+        return res.status(403).json({
+          success: false,
+          message: "You cannot book your own service"
+        });
+      }
+    }
+
     const booking = new Booking({
       userId,
       professionalId: professionalId || null,
@@ -89,7 +100,7 @@ export const getUserBookings = async (req, res) => {
     const bookings = await Booking.find({ userId })
       .sort({ createdAt: -1 })
       .populate("userId", "name email phone")
-      .populate("professionalId", "firstName lastName serviceCategory profileImage");
+      .populate("professionalId", "firstName lastName serviceCategory profileImage serviceArea phone email");
 
     res.status(200).json({
       success: true,
@@ -115,7 +126,7 @@ export const getBookingById = async (req, res) => {
 
     const booking = await Booking.findById(id)
       .populate("userId", "name email phone")
-      .populate("professionalId", "firstName lastName serviceCategory profileImage");
+      .populate("professionalId", "firstName lastName serviceCategory profileImage serviceArea phone email");
 
     if (!booking) {
       return res.status(404).json({
@@ -392,6 +403,109 @@ export const getProfessionalStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching stats",
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Update payment status
+ */
+export const updatePaymentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { paymentStatus, paymentMethod } = req.body;
+
+    if (!paymentStatus) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment status is required"
+      });
+    }
+
+    const booking = await Booking.findByIdAndUpdate(
+      id,
+      { 
+        paymentStatus, 
+        paymentMethod: paymentMethod || "None" 
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found"
+      });
+    }
+
+    // Notify professional if payment is received
+    if (paymentStatus === "Paid") {
+      try {
+        const { createNotification } = await import("./notificationController.js");
+        if (booking.professionalId) {
+          // get the actual professional user ID
+          const prof = await Professional.findById(booking.professionalId);
+          if (prof && prof.userId) {
+            await createNotification(
+              prof.userId,
+              "success",
+              "Payment Received! 💰",
+              `You have received payment of ${booking.totalCost} for ${booking.serviceTitle}.`,
+              "/professional-dashboard"
+            );
+          }
+        }
+      } catch (notifErr) {
+        console.error("Failed to send notification to professional:", notifErr);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Payment status updated successfully",
+      data: booking
+    });
+  } catch (error) {
+    console.error("Error updating payment status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating payment status",
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Check if a user has a confirmed or completed booking with a professional
+ */
+export const checkUserBookingStatus = async (req, res) => {
+  try {
+    const { userId, professionalId } = req.params;
+
+    if (!userId || !professionalId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID and Professional ID are required"
+      });
+    }
+
+    // Find any booking by this user for this professional with status 'Confirmed' or 'Completed'
+    const booking = await Booking.findOne({
+      userId,
+      professionalId,
+      status: { $in: ["Confirmed", "Completed"] }
+    });
+
+    res.status(200).json({
+      success: true,
+      hasBooking: !!booking
+    });
+  } catch (error) {
+    console.error("Error checking user booking status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error checking user booking status",
       error: error.message
     });
   }

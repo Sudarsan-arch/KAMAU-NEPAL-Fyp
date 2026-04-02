@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { MapPin, Calendar, Clock, CheckCircle, XCircle, User, Mail, Phone, X } from 'lucide-react';
+import { MapPin, Calendar, Clock, CheckCircle, XCircle, User, Mail, Phone, X, FileText } from 'lucide-react';
 
-const RequestCard = ({ request, onAction }) => {
+const RequestCard = ({ request, onAction, onDownloadPDF }) => {
   const [loading, setLoading] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showRejectionModal, setShowRejectionModal] = useState(false);
@@ -36,7 +36,7 @@ const RequestCard = ({ request, onAction }) => {
             >
               {request.userId?.profileImage ? (
                 <img 
-                  src={request.userId.profileImage.startsWith('http') ? request.userId.profileImage : `/${request.userId.profileImage.replace(/\\/g, '/')}`} 
+                  src={request.userId.profileImage ? (request.userId.profileImage.startsWith('data:') || request.userId.profileImage.startsWith('http') ? request.userId.profileImage : `/${request.userId.profileImage.replace(/\\/g, '/')}`) : `https://ui-avatars.com/api/?name=${request.fullName}&background=random`} 
                   className="w-full h-full object-cover" 
                   alt={request.fullName}
                   referrerPolicy="no-referrer"
@@ -111,6 +111,13 @@ const RequestCard = ({ request, onAction }) => {
                     Ongoing
                   </div>
                   <button 
+                    onClick={() => onDownloadPDF(request)}
+                    title="Download Customer Information"
+                    className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all active:scale-95"
+                  >
+                    <FileText size={18} />
+                  </button>
+                  <button 
                     disabled={loading}
                     onClick={() => handleAction('Completed')}
                     className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-200 active:scale-95 disabled:opacity-50"
@@ -147,7 +154,7 @@ const RequestCard = ({ request, onAction }) => {
                   <div className="w-full h-full rounded-[38px] bg-slate-50 flex items-center justify-center text-4xl font-black text-teal-600 border border-slate-100 overflow-hidden bg-white">
                     {request.userId?.profileImage ? (
                       <img 
-                        src={request.userId.profileImage.startsWith('http') ? request.userId.profileImage : `/${request.userId.profileImage.replace(/\\/g, '/')}`} 
+                        src={request.userId.profileImage ? (request.userId.profileImage.startsWith('data:') || request.userId.profileImage.startsWith('http') ? request.userId.profileImage : `/${request.userId.profileImage.replace(/\\/g, '/')}`) : `https://ui-avatars.com/api/?name=${request.fullName}&background=random`} 
                         className="w-full h-full object-cover" 
                         alt={request.fullName}
                         referrerPolicy="no-referrer"

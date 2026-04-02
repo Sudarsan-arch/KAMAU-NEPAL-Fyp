@@ -78,7 +78,9 @@ export default function ExploreJobs() {
                         title: p.serviceCategory ? p.serviceCategory.charAt(0).toUpperCase() + p.serviceCategory.slice(1) : 'Professional',
                         company: `${p.firstName} ${p.lastName}`,
                         location: p.serviceArea ? p.serviceArea.charAt(0).toUpperCase() + p.serviceArea.slice(1) : 'Nepal',
-                        salary: `रू ${p.hourlyWage}/hr`,
+                        salary: ['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(p.serviceCategory) 
+                            ? `रू ${p.hourlyWage} (Fixed)` 
+                            : `रू ${p.hourlyWage}/hr`,
                         type: 'Full-time', // Defaulting for now
                         level: p.completedJobs > 10 ? 'Senior' : (p.completedJobs > 3 ? 'Mid-level' : 'Entry-level'),
                         skills: [p.serviceCategory, 'Reliable'],

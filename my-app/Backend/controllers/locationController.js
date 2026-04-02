@@ -30,24 +30,29 @@ export const updateLocation = async (req, res) => {
             formattedAddress: formattedAddress
         };
 
-        let updatedUser;
-        if (role === "professional") {
-            updatedUser = await Professional.findByIdAndUpdate(
-                userId,
-                updateData,
-                { new: true }
-            );
-        } else {
-            updatedUser = await User.findByIdAndUpdate(
-                userId,
-                updateData,
-                { new: true }
-            );
+        // ALWAYS update the main User record regardless of role
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            updateData,
+            { new: true }
+        );
+
+        // SYNC: If user is also a professional, update professional record
+        const updatedPro = await Professional.findOneAndUpdate(
+            { userId: userId },
+            { 
+                location: locationData,
+                serviceArea: formattedAddress,
+                formattedAddress: formattedAddress 
+            },
+            { new: true }
+        );
+
+        if (!updatedUser && !updatedPro) {
+            return res.status(404).json({ message: "User or Professional not found" });
         }
 
-        if (!updatedUser) {
-            return res.status(404).json({ message: "User not found" });
-        }
+        const primaryDoc = updatedUser || updatedPro;
 
         res.json({
             message: "Location updated successfully",

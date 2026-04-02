@@ -8,7 +8,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['request', 'message', 'system', 'update'],
+    enum: ['request', 'message', 'system', 'update', 'success', 'info', 'error', 'warning'],
     default: 'system'
   },
   title: {

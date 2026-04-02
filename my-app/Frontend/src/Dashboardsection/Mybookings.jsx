@@ -4,30 +4,23 @@ import Sidebar from '../components/Sidebar';
 import {
     Menu,
     X,
-    Search,
     Bell,
-    Settings,
-    LogOut,
     MapPin,
     Clock,
     DollarSign,
     Star,
-    Phone,
-    Mail,
     Trash2,
-    Edit2,
     CheckCircle,
     AlertCircle,
     Calendar,
     ChevronDown,
     MessageSquare,
-    Home,
-    TrendingUp,
+    Send,
     CreditCard,
-    HelpCircle,
-    Briefcase,
 } from 'lucide-react';
 import Logo from '../Logo';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { submitReview } from '../services/reviewService';
 
 export default function MyBookings() {
     const navigate = useNavigate();
@@ -36,6 +29,31 @@ export default function MyBookings() {
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [showCancelForm, setShowCancelForm] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
+    const [confirmDialog, setConfirmDialog] = useState({ 
+        isOpen: false, 
+        title: '', 
+        message: '', 
+        onConfirm: () => {}, 
+        type: 'danger' 
+    });
+
+    // Review Modal State
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [reviewBooking, setReviewBooking] = useState(null);
+    const [reviewRating, setReviewRating] = useState(0);
+    const [reviewHover, setReviewHover] = useState(0);
+    const [reviewComment, setReviewComment] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [reviewSubmitted, setReviewSubmitted] = useState(false);
+    const [reviewedBookings, setReviewedBookings] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('reviewedBookings') || '[]'); }
+        catch { return []; }
+    });
+
+
+    const openConfirm = (config) => {
+        setConfirmDialog({ ...config, isOpen: true });
+    };
 
     const userName = localStorage.getItem('userName') || 'Professional User';
     const userProfileImage = localStorage.getItem('userProfileImage');
@@ -46,7 +64,7 @@ export default function MyBookings() {
 
     useEffect(() => {
         fetchBookings();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchBookings = async () => {
         try {
@@ -73,13 +91,17 @@ export default function MyBookings() {
     };
 
     const handleLogout = () => {
-        const confirmLogout = window.confirm('Are you sure you want to log out?');
-        if (confirmLogout) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('userId');
-            localStorage.removeItem('userName');
-            navigate('/');
-        }
+        openConfirm({
+            title: "Sign Out",
+            message: "Are you sure you want to log out of your account?",
+            onConfirm: () => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('userId');
+                localStorage.removeItem('userName');
+                navigate('/');
+            },
+            type: 'danger'
+        });
     };
 
     const getInitials = (name) => {
@@ -89,6 +111,19 @@ export default function MyBookings() {
             .join('')
             .toUpperCase()
             .slice(0, 2) || 'UN';
+    };
+
+    const getPaymentStatusColor = (status) => {
+        switch (status) {
+            case 'Paid':
+                return 'bg-green-100 text-green-800';
+            case 'Pending':
+                return 'bg-yellow-100 text-yellow-800';
+            case 'Refunded':
+                return 'bg-purple-100 text-purple-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
     };
 
     const getStatusColor = (status) => {
@@ -148,39 +183,105 @@ export default function MyBookings() {
     };
 
     const handleCompleteBooking = async (bookingId) => {
-        const confirmComplete = window.confirm('Are you sure you want to mark this service as completed?');
-        if (confirmComplete) {
-            try {
-                const { updateBookingStatus } = await import('../bookingService');
-                await updateBookingStatus(bookingId, 'Completed', '');
-                alert('Booking marked as completed successfully.');
-                fetchBookings(); // Refresh list
-                setSelectedBooking(null);
-            } catch (err) {
-                console.error('Error completing booking:', err);
-                alert(err.message || 'Failed to complete booking');
-            }
-        }
+        openConfirm({
+            title: "Mark Completed",
+            message: "Are you sure you want to mark this service as completed? This action cannot be undone.",
+            confirmText: "Yes, Completed",
+            onConfirm: async () => {
+                try {
+                    const { updateBookingStatus } = await import('../bookingService');
+                    await updateBookingStatus(bookingId, 'Completed', '');
+                    alert('Booking marked as completed successfully.');
+                    fetchBookings(); // Refresh list
+                    setSelectedBooking(null);
+                } catch (err) {
+                    console.error('Error completing booking:', err);
+                    alert(err.message || 'Failed to complete booking');
+                }
+            },
+            type: 'success'
+        });
     };
 
     const handleDeleteBooking = async (bookingId) => {
-        const confirmDelete = window.confirm('Are you sure you want to delete this booking?');
-        if (confirmDelete) {
-            try {
-                const { deleteBooking } = await import('../bookingService');
-                await deleteBooking(bookingId);
-                alert('Booking deleted successfully');
-                fetchBookings(); // Refresh list
-            } catch (err) {
-                console.error('Error deleting booking:', err);
-                alert(err.message || 'Failed to delete booking');
-            }
-        }
+        openConfirm({
+            title: "Delete Booking",
+            message: "This will permanently remove the booking from your records. Are you sure?",
+            confirmText: "Delete Record",
+            onConfirm: async () => {
+                try {
+                    const { deleteBooking } = await import('../bookingService');
+                    await deleteBooking(bookingId);
+                    alert('Booking deleted successfully');
+                    fetchBookings(); // Refresh list
+                } catch (err) {
+                    console.error('Error deleting booking:', err);
+                    alert(err.message || 'Failed to delete booking');
+                }
+            },
+            type: 'danger'
+        });
     };
 
     const handleLogoClick = () => {
         navigate('/');
     };
+
+    const openReviewModal = (booking) => {
+        setReviewBooking(booking);
+        setReviewRating(0);
+        setReviewHover(0);
+        setReviewComment('');
+        setReviewSubmitted(false);
+        setShowReviewModal(true);
+    };
+
+    const handleSubmitReview = async (e) => {
+        e.preventDefault();
+        if (reviewRating === 0) {
+            alert('Please select a star rating');
+            return;
+        }
+        if (!reviewComment.trim()) {
+            alert('Please write a comment');
+            return;
+        }
+
+        const userId = localStorage.getItem('userId');
+        const userName = localStorage.getItem('userName') || 'Anonymous';
+        const professionalId = reviewBooking?.professionalId?._id || reviewBooking?.professionalId;
+
+        if (!professionalId) {
+            alert('Cannot identify the professional for this booking.');
+            return;
+        }
+
+        setReviewSubmitting(true);
+        try {
+            await submitReview({ professionalId, userId, userName, rating: reviewRating, comment: reviewComment });
+            setReviewSubmitted(true);
+            // Mark this booking as reviewed
+            const updated = [...reviewedBookings, reviewBooking._id];
+            setReviewedBookings(updated);
+            localStorage.setItem('reviewedBookings', JSON.stringify(updated));
+            setTimeout(() => {
+                setShowReviewModal(false);
+                setReviewBooking(null);
+            }, 2500);
+        } catch (err) {
+            const msg = err?.response?.data?.message || err.message || 'Failed to submit review';
+            alert(msg);
+        } finally {
+            setReviewSubmitting(false);
+        }
+    };
+
+    const hasReviewed = (bookingId) => reviewedBookings.includes(bookingId);
+
+    const handlePayment = (booking) => {
+        navigate(`/payment/${booking._id}`);
+    };
+
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -347,6 +448,12 @@ export default function MyBookings() {
                                             <span className="text-gray-600">Location</span>
                                             <span className="font-semibold text-gray-900">{selectedBooking.location}</span>
                                         </div>
+                                        <div className="flex justify-between items-center mb-3">
+                                            <span className="text-gray-600">Payment Status</span>
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${getPaymentStatusColor(selectedBooking.paymentStatus)}`}>
+                                                {selectedBooking.paymentStatus || 'Unpaid'}
+                                            </span>
+                                        </div>
                                         <div className="flex justify-between items-center pt-3 border-t border-gray-200">
                                             <span className="text-gray-900 font-semibold">Total Cost</span>
                                             <span className="text-2xl font-bold text-orange-600">{selectedBooking.totalCost}</span>
@@ -384,10 +491,32 @@ export default function MyBookings() {
                                             Mark as Completed
                                         </button>
                                     )}
-                                    {selectedBooking.status === 'Completed' && (
-                                        <button className="flex-1 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg transition">
-                                            Leave Review
-                                        </button>
+                                    {(selectedBooking.status === 'Completed' || selectedBooking.status === 'Confirmed') && (
+                                        <div className="flex flex-col w-full gap-3">
+                                            {selectedBooking.status === 'Completed' && selectedBooking.paymentStatus !== 'Paid' && (
+                                                <button
+                                                    onClick={() => handlePayment(selectedBooking)}
+                                                    className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-black rounded-xl transition shadow-xl shadow-green-100 flex items-center justify-center gap-2"
+                                                >
+                                                    <CreditCard size={20} />
+                                                    Pay Now ({selectedBooking.totalCost})
+                                                </button>
+                                            )}
+                                            {hasReviewed(selectedBooking._id) ? (
+                                                <div className="w-full flex items-center justify-center gap-2 py-3 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200">
+                                                    <CheckCircle size={18} />
+                                                    Review Submitted
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => openReviewModal(selectedBooking)}
+                                                    className="w-full py-3 bg-white border-2 border-orange-600 text-orange-600 hover:bg-orange-50 font-bold rounded-xl transition flex items-center justify-center gap-2"
+                                                >
+                                                    <Star size={18} />
+                                                    Leave a Review
+                                                </button>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -581,6 +710,109 @@ export default function MyBookings() {
                     </div>
                 </div>
             )}
+            {/* Review Modal */}
+            {showReviewModal && reviewBooking && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4" style={{background:'rgba(15,23,42,0.55)', backdropFilter:'blur(6px)'}}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300">
+                        {reviewSubmitted ? (
+                            <div className="p-12 text-center flex flex-col items-center">
+                                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4 animate-bounce">
+                                    <CheckCircle size={40} />
+                                </div>
+                                <h3 className="text-2xl font-black text-gray-900 mb-2">Review Submitted!</h3>
+                                <p className="text-gray-500 font-medium">Thank you for your feedback. It helps others find great professionals.</p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Modal Header */}
+                                <div className="px-6 pt-6 pb-4 flex justify-between items-start border-b border-gray-100">
+                                    <div>
+                                        <h3 className="text-xl font-black text-gray-900">Rate Your Experience</h3>
+                                        <p className="text-sm text-gray-500 mt-0.5">with <span className="font-semibold text-gray-700">{reviewBooking.serviceProvider}</span></p>
+                                    </div>
+                                    <button onClick={() => setShowReviewModal(false)} className="p-2 rounded-xl bg-gray-100 text-gray-400 hover:text-gray-700 transition">
+                                        <X size={20} />
+                                    </button>
+                                </div>
+
+                                <form onSubmit={handleSubmitReview} className="p-6 space-y-5">
+                                    {/* Star Rating */}
+                                    <div>
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Your Rating</label>
+                                        <div className="flex items-center gap-2">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <button
+                                                    key={star}
+                                                    type="button"
+                                                    onClick={() => setReviewRating(star)}
+                                                    onMouseEnter={() => setReviewHover(star)}
+                                                    onMouseLeave={() => setReviewHover(0)}
+                                                    className="transition-transform hover:scale-110 focus:outline-none"
+                                                >
+                                                    <Star
+                                                        size={36}
+                                                        className={`transition-colors ${
+                                                            star <= (reviewHover || reviewRating)
+                                                                ? 'fill-yellow-400 text-yellow-400'
+                                                                : 'text-gray-200 fill-gray-100'
+                                                        }`}
+                                                    />
+                                                </button>
+                                            ))}
+                                            <span className="ml-2 text-sm font-bold text-gray-500">
+                                                {reviewRating === 1 ? 'Poor' : reviewRating === 2 ? 'Fair' : reviewRating === 3 ? 'Good' : reviewRating === 4 ? 'Very Good' : reviewRating === 5 ? 'Excellent' : 'Select rating'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Comment */}
+                                    <div>
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Your Review</label>
+                                        <textarea
+                                            value={reviewComment}
+                                            onChange={(e) => setReviewComment(e.target.value)}
+                                            placeholder="Share your experience with this professional..."
+                                            className="w-full p-4 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white transition-all text-gray-800 font-medium resize-none"
+                                            rows={4}
+                                            required
+                                        />
+                                    </div>
+
+                                    {/* Service info */}
+                                    <div className="p-3 rounded-xl bg-orange-50 border border-orange-100 flex items-center gap-3">
+                                        <Calendar size={16} className="text-orange-500 shrink-0" />
+                                        <span className="text-sm text-orange-700 font-semibold">{reviewBooking.serviceTitle} — {reviewBooking.bookingDate}</span>
+                                    </div>
+
+                                    {/* Submit */}
+                                    <button
+                                        type="submit"
+                                        disabled={reviewSubmitting || reviewRating === 0}
+                                        className="w-full py-3.5 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-black rounded-xl transition flex items-center justify-center gap-2"
+                                    >
+                                        {reviewSubmitting ? (
+                                            <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Submitting...</>
+                                        ) : (
+                                            <><Send size={18} /> Submit Review</>
+                                        )}
+                                    </button>
+                                </form>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
+
+            <ConfirmDialog 
+                isOpen={confirmDialog.isOpen}
+                onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmDialog.onConfirm}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                confirmText={confirmDialog.confirmText}
+                type={confirmDialog.type}
+            />
         </div>
     );
 }

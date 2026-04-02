@@ -11,7 +11,6 @@ import {
   Activity,
   Shield,
   Compass,
-  Target,
   Eye,
   Power,
   UserCheck,
@@ -22,12 +21,13 @@ import {
   Download
 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import Logo from '../Logo';
 import { getStoredAdminUser, adminLogout } from './adminAuthService';
 import * as adminService from './adminService';
 import StatusBadge from './StatusBadge';
 import MessageCenter from './Messagecentre';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -51,10 +51,21 @@ const AdminDashboard = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewDocId, setPreviewDocId] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({ 
+    isOpen: false, 
+    title: '', 
+    message: '', 
+    onConfirm: () => {}, 
+    type: 'danger' 
+  });
+
+  const openConfirm = (config) => {
+    setConfirmDialog({ ...config, isOpen: true });
+  };
 
   useEffect(() => {
     fetchDashboardData();
-  }, [activeTab]);
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchDashboardData = async () => {
     try {
@@ -84,7 +95,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleDownloadPDF = (professional) => {
+  const handleDownloadPDF = async (professional) => {
     const doc = new jsPDF();
     
     // Header
@@ -100,7 +111,33 @@ const AdminDashboard = () => {
     
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
-    doc.text(`Exported: ${new Date().toLocaleString()}`, 160, 28);
+    doc.text(`Exported: ${new Date().toLocaleString()}`, 130, 20);
+
+    // Add Profile Image if exists
+    if (professional.profileImage) {
+      try {
+        const imgUrl = professional.profileImage.startsWith('http') 
+          ? professional.profileImage 
+          : `${window.location.origin}/${professional.profileImage.replace(/\\/g, '/')}`;
+        
+        // Asynchronously load the image to be added to PDF
+        const img = await new Promise((resolve, reject) => {
+          const i = new Image();
+          i.crossOrigin = 'Anonymous';
+          i.onload = () => resolve(i);
+          i.onerror = (e) => reject(e);
+          i.src = imgUrl;
+        });
+        
+        // Draw image frame
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(168, 5, 32, 32, 3, 3, 'F');
+        // Add image
+        doc.addImage(img, 'JPEG', 169, 6, 30, 30);
+      } catch (err) {
+        console.error('Failed to include image in PDF:', err);
+      }
+    }
 
     // Profile Section
     doc.setTextColor(51, 65, 85);
@@ -115,7 +152,7 @@ const AdminDashboard = () => {
       ['Status', professional.verificationStatus.toUpperCase()]
     ];
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: 60,
       head: [['Field', 'Information']],
       body: identityData,
@@ -130,11 +167,12 @@ const AdminDashboard = () => {
     
     const serviceData = [
       ['Category', professional.serviceCategory],
-      ['Hourly Wage', `KES ${professional.hourlyWage}`],
-      ['Service Area', professional.serviceArea || professional.formattedAddress]
+      ['Hourly Wage', `रू ${professional.hourlyWage}`],
+      ['Service Area', professional.serviceArea || professional.formattedAddress],
+      ['Availability', professional.availability?.map(a => `${a.day}: ${a.startTime}-${a.endTime}`).join(', ') || 'Not specified']
     ];
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 20,
       head: [['Field', 'Information']],
       body: serviceData,
@@ -153,7 +191,7 @@ const AdminDashboard = () => {
       ['Full Address', professional.formattedAddress || 'N/A']
     ];
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 20,
       head: [['Field', 'Coordinate Data']],
       body: geoData,
@@ -183,13 +221,20 @@ const AdminDashboard = () => {
   };
 
   const handleApprove = async (id) => {
-    if (!window.confirm('Approve this professional?')) return;
-    try {
-      const res = await adminService.approveProfessional(id);
-      if (res.success) fetchDashboardData();
-    } catch (err) {
-      alert(err.message || 'Failed to approve');
-    }
+    openConfirm({
+      title: "Approve Professional",
+      message: "This will grant the professional full platform access. Are you sure you want to proceed?",
+      confirmText: "Approve Partner",
+      onConfirm: async () => {
+        try {
+          const res = await adminService.approveProfessional(id);
+          if (res.success) fetchDashboardData();
+        } catch (err) {
+          alert(err.message || 'Failed to approve');
+        }
+      },
+      type: 'success'
+    });
   };
 
   const handleReject = (id) => {
@@ -225,10 +270,16 @@ const AdminDashboard = () => {
   };
 
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to log out?')) {
-      adminLogout();
-      navigate('/');
-    }
+    openConfirm({
+      title: "Security Logout",
+      message: "Are you sure you want to sign out of the administrative session?",
+      confirmText: "Sign Out Now",
+      onConfirm: () => {
+        adminLogout();
+        navigate('/');
+      },
+      type: 'danger'
+    });
   };
 
   const menuItems = [
@@ -357,15 +408,20 @@ const AdminDashboard = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                   {[
-                    { label: 'Total Registrations', value: stats.totalApplications, icon: Users, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-100' },
-                    { label: 'Awaiting Verification', value: stats.totalPending, icon: Clock, color: 'from-teal-500 to-teal-600', shadow: 'shadow-teal-100' },
-                    { label: 'Verified Partners', value: stats.totalApproved, icon: CheckCircle, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-100' },
-                    { label: 'Declined Profiles', value: stats.totalRejected, icon: X, color: 'from-rose-500 to-rose-600', shadow: 'shadow-rose-100' },
+                    { label: 'Total Registrations', value: stats.totalApplications, icon: Users, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-100', tab: 'professionals' },
+                    { label: 'Awaiting Verification', value: stats.totalPending, icon: Clock, color: 'from-teal-500 to-teal-600', shadow: 'shadow-teal-100', tab: 'requests' },
+                    { label: 'Verified Partners', value: stats.totalApproved, icon: CheckCircle, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-100', tab: 'professionals' },
+                    { label: 'Declined Profiles', value: stats.totalRejected, icon: X, color: 'from-rose-500 to-rose-600', shadow: 'shadow-rose-100', tab: 'requests' },
                   ].map((stat, i) => {
                     const Icon = stat.icon;
                     return (
-                      <div key={i} className="relative bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/40 group hover:scale-[1.02] transition-all">
-                        <div className="flex items-center justify-between mb-6">
+                      <div 
+                        key={i} 
+                        onClick={() => setActiveTab(stat.tab)}
+                        className="relative bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/40 group hover:scale-[1.02] active:scale-95 transition-all cursor-pointer overflow-hidden"
+                      >
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 -mr-16 -mt-16 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="flex items-center justify-between mb-6 relative z-10">
                           <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${stat.color} flex items-center justify-center text-white shadow-lg ${stat.shadow} group-hover:rotate-6 transition-transform`}>
                             <Icon size={24} />
                           </div>
@@ -373,8 +429,8 @@ const AdminDashboard = () => {
                             <Activity size={16} className="text-slate-300" />
                           </div>
                         </div>
-                        <p className="text-4xl font-black text-slate-900 mb-2">{stat.value}</p>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{stat.label}</p>
+                        <p className="text-4xl font-black text-slate-900 mb-2 relative z-10">{stat.value}</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] relative z-10">{stat.label}</p>
                       </div>
                     );
                   })}
@@ -407,7 +463,11 @@ const AdminDashboard = () => {
                             <tr><td colSpan={4} className="py-24 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No new entries detected</td></tr>
                           ) : (
                             professionals.map((p) => (
-                              <tr key={p._id} className="hover:bg-slate-50/50 transition-all group">
+                              <tr 
+                                key={p._id} 
+                                onClick={() => handleViewDetails(p)}
+                                className="hover:bg-teal-50/50 transition-all group cursor-pointer"
+                              >
                                 <td className="py-7 pl-4">
                                   <div className="flex items-center gap-4">
                                     <div className="w-14 h-14 rounded-2xl bg-white border border-slate-100 overflow-hidden flex items-center justify-center shadow-inner">
@@ -509,7 +569,11 @@ const AdminDashboard = () => {
                            <tr><td colSpan={4} className="py-24 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No records found for this sector</td></tr>
                         ) : (
                           professionals.map((p) => (
-                            <tr key={p._id} className="hover:bg-slate-50/50 transition-all group">
+                            <tr 
+                              key={p._id} 
+                              onClick={() => handleViewDetails(p)}
+                              className="hover:bg-teal-50/50 transition-all group cursor-pointer"
+                            >
                               <td className="py-7 pl-4">
                                 <div className="flex items-center gap-4 text-slate-900">
                                   <div className="w-14 h-14 rounded-2xl bg-white border border-slate-100 overflow-hidden flex items-center justify-center shadow-inner">
@@ -537,14 +601,14 @@ const AdminDashboard = () => {
                                   {p.verificationStatus === 'pending' ? (
                                     <div className="flex justify-end gap-3">
                                       <button 
-                                        onClick={() => handleApprove(p._id)} 
+                                        onClick={(e) => { e.stopPropagation(); handleApprove(p._id); }} 
                                         className="p-4 bg-emerald-500 text-white hover:bg-emerald-600 rounded-2xl transition-all shadow-lg shadow-emerald-100 active:scale-95"
                                         title="Verify Professional"
                                       >
                                         <CheckCircle size={20} />
                                       </button>
                                       <button 
-                                        onClick={() => handleReject(p._id)} 
+                                        onClick={(e) => { e.stopPropagation(); handleReject(p._id); }} 
                                         className="p-4 bg-rose-500 text-white hover:bg-rose-600 rounded-2xl transition-all shadow-lg shadow-rose-100 active:scale-95"
                                         title="Decline Profile"
                                       >
@@ -554,7 +618,7 @@ const AdminDashboard = () => {
                                   ) : (
                                     <div className="flex justify-end gap-3">
                                       <button 
-                                        onClick={() => handleDownloadPDF(p)} 
+                                        onClick={(e) => { e.stopPropagation(); handleDownloadPDF(p); }} 
                                         className="p-4 bg-white text-slate-400 hover:text-orange-500 border border-slate-100 rounded-2xl transition-all hover:shadow-md"
                                         title="Download Application"
                                       >
@@ -602,7 +666,11 @@ const AdminDashboard = () => {
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden flex items-center justify-center">
                   {selectedProfessional.profileImage ? (
-                    <img src={selectedProfessional.profileImage.startsWith('http') ? selectedProfessional.profileImage : `/${selectedProfessional.profileImage.replace(/\\/g, '/')}`} className="w-full h-full object-cover" />
+                    <img 
+                      src={selectedProfessional.profileImage.startsWith('http') ? selectedProfessional.profileImage : `/${selectedProfessional.profileImage.replace(/\\/g, '/')}`} 
+                      className="w-full h-full object-cover" 
+                      alt={`${selectedProfessional.firstName} ${selectedProfessional.lastName}`}
+                    />
                   ) : <Users size={28} className="text-teal-500" />}
                 </div>
                 <div>
@@ -643,7 +711,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Hourly Wage</p>
-                  <p className="font-bold text-slate-900">KES {selectedProfessional.hourlyWage}</p>
+                  <p className="font-bold text-slate-900">रू {selectedProfessional.hourlyWage}</p>
                 </div>
               </div>
 
@@ -673,6 +741,25 @@ const AdminDashboard = () => {
                   "{selectedProfessional.bio || 'No biography provided.'}"
                 </p>
               </div>
+
+              {selectedProfessional.availability && selectedProfessional.availability.length > 0 && (
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Service Availability</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {selectedProfessional.availability.map((slot, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-4 bg-orange-50/50 border border-orange-100 rounded-3xl group hover:border-orange-200 transition-all">
+                        <div className="w-10 h-10 bg-orange-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-orange-100 group-hover:scale-110 transition-transform">
+                          <Clock size={18} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-slate-900 uppercase tracking-wider">{slot.day}</p>
+                          <p className="text-sm font-bold text-orange-600 tracking-tight">{slot.startTime} - {slot.endTime}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-4">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Verification Credentials</p>
@@ -817,6 +904,15 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+      <ConfirmDialog 
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={confirmDialog.confirmText}
+        type={confirmDialog.type}
+      />
     </div>
   );
 };

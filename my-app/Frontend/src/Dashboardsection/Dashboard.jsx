@@ -7,38 +7,44 @@ import {
   X,
   Search,
   Bell,
-  Settings,
   LogOut,
   Briefcase,
   Users,
   Calendar,
   Star,
-  TrendingUp,
-  CreditCard,
   MessageSquare,
-  HelpCircle,
   Home,
   ArrowLeft,
   MapPin,
   Clock,
   DollarSign,
-  Sparkles,
-  Wrench,
   CheckCircle,
 } from "lucide-react";
 import Logo from "../Logo";
 import { addTakenService } from "../services/storage";
 import { createBooking } from "../bookingService";
 import NotificationsMenu from "../components/NotificationsMenu";
+import ConfirmDialog from "../components/ConfirmDialog";
 
-const Dashboard = ({ onProfileClick }) => {
+const Dashboard = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab] = useState("overview");
   const [selectedJob, setSelectedJob] = useState(null);
   const [showHireForm, setShowHireForm] = useState(false);
   const [showMessageForm, setShowMessageForm] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({ 
+    isOpen: false, 
+    title: '', 
+    message: '', 
+    onConfirm: () => {}, 
+    type: 'danger' 
+  });
+
+  const openConfirm = (config) => {
+    setConfirmDialog({ ...config, isOpen: true });
+  };
 
   const [messageFormData, setMessageFormData] = useState({
     subject: "",
@@ -101,7 +107,7 @@ const Dashboard = ({ onProfileClick }) => {
     };
 
     fetchUserProfile();
-  }, [userId, userRole]);
+  }, [userId, userRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const user = {
     name: userData.name,
@@ -192,13 +198,17 @@ const Dashboard = ({ onProfileClick }) => {
   ];
 
   const handleLogout = () => {
-    const confirmLogout = window.confirm("Are you sure you want to log out?");
-    if (confirmLogout) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("userId");
-      localStorage.removeItem("userName");
-      navigate("/");
-    }
+    openConfirm({
+      title: "Sign Out",
+      message: "Are you sure you want to log out? You will need to sign in again to access your dashboard and bookings.",
+      onConfirm: () => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userName");
+        navigate("/");
+      },
+      type: 'danger'
+    });
   };
 
   const handleLogoClick = () => {
@@ -308,47 +318,48 @@ const Dashboard = ({ onProfileClick }) => {
 
   const handleServiceTaken = () => {
     try {
-      const confirmService = window.confirm(
-        `Mark service "${selectedJob.title}" as taken? This will update your services taken count.`
-      );
+      openConfirm({
+        title: "Service Confirmation",
+        message: `Mark service "${selectedJob.title}" as taken? This will update your services history and profile metrics.`,
+        onConfirm: () => {
+          // Update the job status to "Service Taken"
+          const updatedJob = { ...selectedJob, status: "Service Taken" };
+          setSelectedJob(updatedJob);
 
-      if (confirmService) {
-        // Update the job status to "Service Taken"
-        const updatedJob = { ...selectedJob, status: "Service Taken" };
-        setSelectedJob(updatedJob);
+          // Update the recentJobs array
+          const jobIndex = recentJobs.findIndex(j => j.title === selectedJob.title && j.company === selectedJob.company);
+          if (jobIndex !== -1) {
+            recentJobs[jobIndex].status = "Service Taken";
+            recentJobs[jobIndex].color = "bg-orange-100 text-orange-800";
+          }
 
-        // Update the recentJobs array
-        const jobIndex = recentJobs.findIndex(j => j.title === selectedJob.title && j.company === selectedJob.company);
-        if (jobIndex !== -1) {
-          recentJobs[jobIndex].status = "Service Taken";
-          recentJobs[jobIndex].color = "bg-orange-100 text-orange-800";
-        }
+          // Increment the services taken count in stats
+          stats[0].value = String(parseInt(stats[0].value) + 1);
 
-        // Increment the services taken count in stats
-        stats[0].value = String(parseInt(stats[0].value) + 1);
+          // Log the action
+          console.log(`Service taken: ${selectedJob.title} from ${selectedJob.company}`);
 
-        // Log the action
-        console.log(`Service taken: ${selectedJob.title} from ${selectedJob.company}`);
+          // Save to localStorage using the storage service
+          const serviceRecord = {
+            title: selectedJob.title,
+            provider: selectedJob.company,
+            company: selectedJob.company,
+            rating: selectedJob.rating || 4.5,
+            cost: selectedJob.hourlyRate || "$0.00",
+            category: selectedJob.title.includes("Developer") ? "Tech" :
+              selectedJob.title.includes("Engineer") ? "Creative" : "Home",
+            dateAdded: new Date().toISOString(),
+            date: new Date().toLocaleDateString()
+          };
 
-        // Save to localStorage using the storage service
-        const serviceRecord = {
-          title: selectedJob.title,
-          provider: selectedJob.company,
-          company: selectedJob.company,
-          rating: selectedJob.rating || 4.5,
-          cost: selectedJob.hourlyRate || "$0.00",
-          category: selectedJob.title.includes("Developer") ? "Tech" :
-            selectedJob.title.includes("Engineer") ? "Creative" : "Home",
-          dateAdded: new Date().toISOString(),
-          date: new Date().toLocaleDateString()
-        };
+          console.log("Service record to save:", serviceRecord);
+          addTakenService(serviceRecord);
+          console.log("Service saved successfully");
 
-        console.log("Service record to save:", serviceRecord);
-        addTakenService(serviceRecord);
-        console.log("Service saved successfully");
-
-        alert(`✅ Service marked as taken!\nService: ${selectedJob.title}\nProvider: ${selectedJob.company}\n\nThe service has been added to your services taken count.`);
-      }
+          alert(`✅ Service marked as taken!\nService: ${selectedJob.title}\nProvider: ${selectedJob.company}\n\nThe service has been added to your services taken count.`);
+        },
+        type: 'info'
+      });
     } catch (error) {
       console.error("Error in handleServiceTaken:", error);
       alert("Error marking service as taken. Please try again.");
@@ -721,16 +732,7 @@ const Dashboard = ({ onProfileClick }) => {
               </button>
             </div>
 
-            <div className="flex-1 max-w-xl mx-8 hidden md:block">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Find services near you (cleaning, plumbing, etc.)..."
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all text-sm outline-none"
-                />
-              </div>
-            </div>
+            
 
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="relative">
@@ -820,7 +822,16 @@ const Dashboard = ({ onProfileClick }) => {
         
         </main>
       </div>
-    </div >
+      <ConfirmDialog 
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={confirmDialog.confirmText}
+        type={confirmDialog.type}
+      />
+    </div>
   );
 };
 

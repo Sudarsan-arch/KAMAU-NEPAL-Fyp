@@ -15,9 +15,13 @@ import PrivateRoute from './PrivateRoute'; // Import PrivateRoute
 import ExploreJobs from './Homepage/ExploreJobs';
 import Mybookings from './Dashboardsection/Mybookings';
 import MessagePage from './Dashboardsection/message';
+import PaymentPage from './Dashboardsection/PaymentPage';
 import Admindashboard from './Adminside/Admindashboard';
 import AdminPrivateRoute from './Adminside/AdminPrivateRoute';
 import ProfessionalDashboard from './serviceprovider/ProfessionalDashboard';
+import CompaniesPage from './Homepage/CompaniesPage';
+import PeoplePage from './Homepage/PeoplePage';
+import ServicesPage from './Homepage/ServicesPage';
 
 import './index.css';
 import './Homepage/global.css';
@@ -35,6 +39,9 @@ const App = () => {
           <Route path="/professional-registration" element={<ProfessionalRegistration />} />
           <Route path="/professional/:id" element={<ProfessionalProfile />} />
           <Route path="/explore-jobs" element={<ExploreJobs />} />
+          <Route path="/companies" element={<CompaniesPage />} />
+          <Route path="/people" element={<PeoplePage />} />
+          <Route path="/services" element={<ServicesPage />} />
 
           {/* Admin Routes */}
           <Route
@@ -85,6 +92,15 @@ const App = () => {
             element={
               <PrivateRoute>
                 <MessagePage />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/payment/:bookingId"
+            element={
+              <PrivateRoute>
+                <PaymentPage />
               </PrivateRoute>
             }
           />

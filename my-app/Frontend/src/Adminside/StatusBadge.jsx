@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Clock, XCircle, AlertCircle, Shield, Zap } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, Shield, Zap } from 'lucide-react';
 
 const StatusBadge = ({ status }) => {
   const statusConfig = {

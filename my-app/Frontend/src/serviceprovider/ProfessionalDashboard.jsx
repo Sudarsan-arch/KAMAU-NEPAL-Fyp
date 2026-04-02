@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import axios from 'axios';
 import {
-  X, Menu, Search, Bell, Zap, Compass, Target, Navigation, Orbit, Eye,
-  Power, SwitchCamera, Shield, TrendingUp, ChevronRight, Cpu, Activity,
+  X, Menu, Search, Bell, Zap, Compass, Target, Orbit, Eye,
+  Power, SwitchCamera, Cpu, Activity, ChevronRight,
   MessageSquare, DollarSign, User, Mail, Phone, MapPin
 } from 'lucide-react';
 
@@ -12,6 +14,7 @@ import Logo from '../Logo';
 import NotificationsMenu from '../components/NotificationsMenu';
 import StatsCards from './components/StatsCards';
 import RequestsList from './components/RequestsList';
+import ProfessionalMessages from './components/ProfessionalMessages';
 
 const ProfessionalDashboard = () => {
   const navigate = useNavigate();
@@ -21,7 +24,6 @@ const ProfessionalDashboard = () => {
   const [professionalData, setProfessionalData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
-  const [error, setError] = useState(null);
 
   const [stats, setStats] = useState({
     pendingRequests: 0,
@@ -40,8 +42,6 @@ const ProfessionalDashboard = () => {
         navigate('/login');
         return;
       }
-
-      setError(null);
       const profileResponse = await axios.get('/api/professionals/me', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -65,7 +65,6 @@ const ProfessionalDashboard = () => {
       }
     } catch (err) {
       console.error('Fetch error:', err);
-      setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -93,6 +92,86 @@ const ProfessionalDashboard = () => {
       console.error('Error updating booking status:', err);
       alert(err.response?.data?.message || 'Failed to update booking status');
     }
+  };
+
+  const handleDownloadPDF = (request) => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFillColor(15, 118, 110); // Kamau Teal
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('KAMAU NEPAL', 15, 20);
+    doc.setFontSize(10);
+    doc.text('CUSTOMER SERVICE RECORD', 15, 28);
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.text(`Exported: ${new Date().toLocaleString()}`, 160, 28);
+
+    // Customer Information Section
+    doc.setTextColor(51, 65, 85);
+    doc.setFontSize(14);
+    doc.text('1. CUSTOMER IDENTITY & CONTACT', 15, 55);
+    
+    const customerData = [
+      ['Full Name', request.fullName || 'N/A'],
+      ['Email Address', request.userId?.email || 'N/A'],
+      ['Phone Number', request.userId?.phone || 'N/A'],
+      ['Service Location', request.location || 'N/A'],
+      ['Booking Status', request.status.toUpperCase()]
+    ];
+
+    autoTable(doc, {
+      startY: 60,
+      head: [['Field', 'Information']],
+      body: customerData,
+      theme: 'striped',
+      headStyles: { fillColor: [20, 184, 166] },
+      margin: { left: 15 }
+    });
+
+    // Service Description Section
+    doc.setFontSize(14);
+    doc.text('2. SERVICE DETAILS', 15, doc.lastAutoTable.finalY + 15);
+    
+    const serviceData = [
+      ['Service Category', request.serviceTitle || 'N/A'],
+      ['Work Description', request.workDescription || 'N/A'],
+      ['Scheduled Date', new Date(request.bookingDate).toLocaleDateString()],
+      ['Time Slot', request.timeSchedule || 'N/A'],
+      ['Service Fee', request.totalCost || 'N/A']
+    ];
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 20,
+      head: [['Field', 'Information']],
+      body: serviceData,
+      theme: 'striped',
+      headStyles: { fillColor: [45, 212, 191] },
+      margin: { left: 15 },
+      columnStyles: {
+        1: { cellWidth: 120 } // Give more space to description
+      }
+    });
+
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(
+        `Kamau Nepal Service Platform - Confidential Document - Page ${i} of ${pageCount}`,
+        15,
+        285
+      );
+    }
+
+    doc.save(`Customer_Record_${request.fullName.replace(/\s+/g, '_')}.pdf`);
   };
 
   const handleLogout = () => {
@@ -131,6 +210,7 @@ const ProfessionalDashboard = () => {
           title="Recent Activity"
           requests={allRequests.filter(r => r.status === 'Pending').slice(0, 3)}
           onAction={handleBookingAction}
+          onDownloadPDF={handleDownloadPDF}
           loading={false}
           error={null}
         />
@@ -152,6 +232,7 @@ const ProfessionalDashboard = () => {
         title="Command Center: Service Requests"
         requests={allRequests}
         onAction={handleBookingAction}
+        onDownloadPDF={handleDownloadPDF}
         loading={false}
         error={null}
       />
@@ -159,13 +240,7 @@ const ProfessionalDashboard = () => {
   );
 
   const renderMessages = () => (
-    <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm p-12 text-center animate-in fade-in scale-95 duration-500">
-      <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
-        <MessageSquare size={32} />
-      </div>
-      <h3 className="text-2xl font-black text-slate-900 mb-2">Encrypted Comms</h3>
-      <p className="text-slate-500 max-w-sm mx-auto font-medium">The customer chat interface is currently being synchronized. Secure link established, awaiting UI deployment.</p>
-    </div>
+    <ProfessionalMessages />
   );
 
   const renderEarnings = () => (
@@ -205,7 +280,7 @@ const ProfessionalDashboard = () => {
           <div className="relative group">
             <div className="w-32 h-32 rounded-[40px] bg-slate-50 border-4 border-white shadow-xl overflow-hidden">
               {professionalData?.profileImage ? (
-                <img src={`/${professionalData.profileImage.replace(/\\/g, '/')}`} className="w-full h-full object-cover" />
+                <img src={professionalData.profileImage.startsWith('data:') ? professionalData.profileImage : `/${professionalData.profileImage.replace(/\\/g, '/')}`} className="w-full h-full object-cover" alt="Profile" />
               ) : <div className="w-full h-full flex items-center justify-center text-4xl text-teal-600 font-black">{professionalData?.firstName?.charAt(0)}</div>}
             </div>
             <button className="absolute bottom-2 right-2 p-2 bg-teal-500 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><Cpu size={16} /></button>
@@ -315,7 +390,7 @@ const ProfessionalDashboard = () => {
               <div className="w-10 h-10 rounded-[14px] bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 font-black text-lg overflow-hidden shadow-sm shadow-teal-100">
                 {professionalData?.profileImage ? (
                   <img
-                    src={`/${professionalData.profileImage.replace(/\\/g, '/')}`}
+                    src={professionalData.profileImage.startsWith('data:') ? professionalData.profileImage : `/${professionalData.profileImage.replace(/\\/g, '/')}`}
                     className="w-full h-full object-cover"
                     alt="Profile"
                   />

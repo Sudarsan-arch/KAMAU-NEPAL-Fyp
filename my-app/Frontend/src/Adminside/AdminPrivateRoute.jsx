@@ -1,6 +1,5 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import * as adminAuthService from './adminAuthService';
 
 const AdminPrivateRoute = ({ children }) => {
   const adminToken = localStorage.getItem('adminToken');

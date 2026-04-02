@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from 'react-router-dom'
 import axios from "axios"
-import { Camera, Mail, Phone, MapPin, CheckCircle2, ArrowLeft, AlertCircle, Menu, X, Bell } from "lucide-react"
+import { Camera, Mail, Phone, MapPin, CheckCircle2, ArrowLeft, AlertCircle, Menu, X, Bell, Lock, ShieldCheck, Key } from "lucide-react"
 import Sidebar from './components/Sidebar'
 import Logo from './Logo'
 
@@ -15,6 +15,7 @@ export default function UserProfile() {
     email: localStorage.getItem("userEmail") || "",
     phone: localStorage.getItem("userPhone") || "",
     location: localStorage.getItem("userLocation") || "",
+    totalBookings: 0
   })
   const [errors, setErrors] = useState({})
   const [successMessage, setSuccessMessage] = useState("")
@@ -26,6 +27,14 @@ export default function UserProfile() {
   const [currentAddressName, setCurrentAddressName] = useState(localStorage.getItem("userLocation") || "")
   const [isGeocoding, setIsGeocoding] = useState(false)
   const [debouncedCoords, setDebouncedCoords] = useState(null)
+  const [activeTab, setActiveTab] = useState("profile")
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  })
+  const [passwordErrors, setPasswordErrors] = useState({})
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
 
   // Reusable function to get address from OSM Nominatim
   const getAddressFromCoordinates = async (lat, lng) => {
@@ -124,9 +133,19 @@ export default function UserProfile() {
             const loc = user.formattedAddress || user.location;
             localStorage.setItem("userLocation", loc)
           }
+
+          // Fetch booking stats
+          try {
+            const statsRes = await axios.get(`/api/bookings/stats/${userId}`);
+            if (statsRes.data.success) {
+              setFormData(prev => ({ ...prev, totalBookings: statsRes.data.data.total }));
+            }
+          } catch (statsErr) {
+            console.error("Error fetching user stats:", statsErr);
+          }
         }
       } catch (error) {
-        console.error("Error loading profile from database:", error)
+        console.error("Error loading profile :", error)
         // Fallback to localStorage
         const userName = localStorage.getItem("userName") || ""
         const userEmail = localStorage.getItem("userEmail") || ""
@@ -154,7 +173,7 @@ export default function UserProfile() {
     }
 
     loadUserProfile()
-  }, [])
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounce state for location updates to avoid API spam
 
@@ -210,12 +229,12 @@ export default function UserProfile() {
           setIsLocationEnabled(false)
         }
       } catch (err) {
-        console.error("Failed to persist address to database:", err)
+        console.error("Failed to persist address:", err)
       }
     }
 
     fetchAddress()
-  }, [debouncedCoords])
+  }, [debouncedCoords, watchId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0]
@@ -246,7 +265,7 @@ export default function UserProfile() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email"
     }
-    if (formData.phone && !/^[\d\s\-\+\(\)]+$/.test(formData.phone)) {
+    if (formData.phone && !/^[\d\s\-+()]+$/.test(formData.phone)) {
       newErrors.phone = "Please enter a valid phone number"
     }
 
@@ -323,7 +342,7 @@ export default function UserProfile() {
         console.log("Profile image saved to localStorage");
       }
 
-      setSuccessMessage("Profile updated successfully and saved to database!")
+      setSuccessMessage("Profile updated successfully!")
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (error) {
       console.error("Error saving profile:", error)
@@ -369,6 +388,65 @@ export default function UserProfile() {
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     )
     setWatchId(id)
+  }
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target
+    setPasswordData({
+      ...passwordData,
+      [name]: value,
+    })
+    if (passwordErrors[name]) {
+      setPasswordErrors({
+        ...passwordErrors,
+        [name]: "",
+      })
+    }
+  }
+
+  const validatePasswordForm = () => {
+    const newErrors = {}
+    if (!passwordData.currentPassword) newErrors.currentPassword = "Current password is required"
+    if (!passwordData.newPassword) {
+      newErrors.newPassword = "New password is required"
+    } else if (passwordData.newPassword.length < 6) {
+      newErrors.newPassword = "New password must be at least 6 characters"
+    }
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match"
+    }
+    setPasswordErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const submitPasswordChange = async () => {
+    if (!validatePasswordForm()) return
+
+    setIsChangingPassword(true)
+    try {
+      const userId = localStorage.getItem("userId")
+      const token = localStorage.getItem("token")
+
+      const response = await axios.put(
+        `/api/users/${userId}/change-password`,
+        {
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+
+      setSuccessMessage("Password successfully updated!")
+      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" })
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (error) {
+      console.error("Password update error:", error)
+      setPasswordErrors({
+        general: error.response?.data?.message || "Failed to update password"
+      })
+    } finally {
+      setIsChangingPassword(false)
+    }
   }
 
   const handleCancel = () => {
@@ -476,219 +554,362 @@ export default function UserProfile() {
                 </div>
               )}
 
-              <div className="space-y-8">
-                {/* Profile Picture Section */}
-                <div className="flex flex-col items-center gap-4 pb-8 border-b border-slate-200">
-                  <div className="relative">
-                    <div className="h-32 w-32 rounded-full bg-gradient-to-br from-teal-400 to-orange-400 flex items-center justify-center text-white text-4xl font-bold overflow-hidden">
-                      {profileImage ? (
-                        <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
-                      ) : (
-                        getInitials(formData.fullName)
-                      )}
-                    </div>
-                    <label
-                      htmlFor="profile-upload"
-                      className="absolute bottom-0 right-0 bg-teal-600 hover:bg-teal-700 text-white rounded-full p-3 cursor-pointer transition-colors shadow-lg"
-                    >
-                      <Camera className="h-5 w-5" />
-                      <input
-                        id="profile-upload"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageUpload}
-                      />
-                    </label>
-                  </div>
-                  <p className="text-sm text-slate-600">Click camera icon to upload profile picture</p>
-                  {errors.profileImage && (
-                    <p className="text-sm text-red-600">{errors.profileImage}</p>
-                  )}
-                </div>
-
-                {/* Personal Information */}
-                <div className="space-y-5">
-                  <h2 className="text-xl font-bold text-slate-900">Personal Information</h2>
-
-                  <div>
-                    <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Full Name
-                    </label>
-                    <input
-                      id="fullName"
-                      name="fullName"
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={formData.fullName}
-                      onChange={handleInputChange}
-                      className={`w-full px-4 py-2.5 border rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${errors.fullName
-                        ? "border-red-300 focus:ring-red-200"
-                        : "border-slate-300 focus:ring-teal-200"
-                        }`}
-                    />
-                    {errors.fullName && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle size={14} /> {errors.fullName}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="username" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Username
-                    </label>
-                    <input
-                      id="username"
-                      name="username"
-                      type="text"
-                      placeholder="Enter your username"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-teal-200 transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Contact Information */}
-                <div className="space-y-5">
-                  <h2 className="text-xl font-bold text-slate-900">Contact Information</h2>
-
-                  <div>
-                    <label htmlFor="email" className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                      <Mail size={16} className="text-teal-600" />
-                      Email <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="your.email@example.com"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className={`w-full px-4 py-2.5 border rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${errors.email
-                        ? "border-red-300 focus:ring-red-200"
-                        : "border-slate-300 focus:ring-teal-200"
-                        }`}
-                    />
-                    {errors.email && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle size={14} /> {errors.email}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="phone" className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                      <Phone size={16} className="text-teal-600" />
-                      Phone Number
-                    </label>
-                    <input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      placeholder="+977 98XX XXX XXX"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      className={`w-full px-4 py-2.5 border rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${errors.phone
-                        ? "border-red-300 focus:ring-red-200"
-                        : "border-slate-300 focus:ring-teal-200"
-                        }`}
-                    />
-                    {errors.phone && (
-                      <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle size={14} /> {errors.phone}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="location" className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                      <MapPin size={16} className="text-teal-600" />
-                      Location {isLocationEnabled ? "(Real-time)" : "(Manual Address)"}
-                    </label>
-                    <div className="flex flex-col gap-3">
-                      <input
-                        id="location"
-                        name="location"
-                        type="text"
-                        placeholder="City, Country or Street Address"
-                        value={isLocationEnabled ? (currentAddressName || (isGeocoding ? "Locating area..." : "Real-time Location Active")) : formData.location}
-                        onChange={handleInputChange}
-                        disabled={isLocationEnabled}
-                        className={`w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-teal-200 transition-all ${(isLocationEnabled || isLocationVerified) ? "bg-teal-50/30 text-teal-700 font-bold" : ""}`}
-                      />
-
-                      {(isLocationEnabled || isLocationVerified) && (currentAddressName || isGeocoding) && (
-                        <div className="p-3 bg-teal-50 border border-teal-100 rounded-xl animate-in fade-in slide-in-from-top-1 duration-300">
-                          <p className="text-xs font-bold text-teal-800 uppercase tracking-wider mb-1 flex items-center gap-1">
-                            {isGeocoding ? `Updating...` : isLocationEnabled ? `📍 Live Tracking Active` : `📍 Saved Verified Location`}
-                          </p>
-                          <p className="text-sm text-teal-900 font-semibold">
-                            {isGeocoding ? "Calculating address..." : currentAddressName || formData.location}
-                          </p>
-                        </div>
-                      )}
-
-                      {!isLocationEnabled ? (
-                        <button
-                          type="button"
-                          onClick={startTracking}
-                          className="flex items-center justify-center gap-2 py-2 px-4 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl hover:bg-teal-100 transition-all font-semibold text-sm"
-                        >
-                          <MapPin size={16} />
-                          {isLocationVerified ? "Update with Real-time Location" : "Enable Real-time Location"}
-                        </button>
-                      ) : (
-                        <div className="flex items-center gap-2 text-xs text-green-600 font-medium px-2">
-                          <CheckCircle2 size={12} /> Live tracking active
-                        </div>
-                      )}
-
-                      {errors.location && (
-                        <p className="text-xs text-red-500 font-medium">{errors.location}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* User Analytics */}
-                <div className="space-y-4 pb-8 border-b border-slate-200">
-                  <h2 className="text-xl font-bold text-slate-900">User Analytics</h2>
-                  <div className="bg-slate-100 rounded-xl p-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-600 font-semibold">Total Bookings</span>
-                      <span className="text-4xl font-bold text-teal-600">0</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Account Verification */}
-                <div className="space-y-4 pb-8">
-                  <h2 className="text-xl font-bold text-slate-900">Account Verification</h2>
-                  <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
-                    <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0" />
-                    <span className="text-green-700 font-semibold">Email Verified</span>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-4 pt-4">
-                  <button
-                    onClick={handleSaveChanges}
-                    disabled={isLoading}
-                    className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-bold py-3 px-6 rounded-xl transition-all transform hover:-translate-y-0.5 shadow-md"
-                  >
-                    {isLoading ? "Saving..." : "Save Changes"}
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-6 rounded-xl transition-all transform hover:-translate-y-0.5"
-                  >
-                    Cancel
-                  </button>
-                </div>
+              {/* Tab Navigation */}
+              <div className="flex border-b border-slate-200 mb-8">
+                <button
+                  onClick={() => setActiveTab("profile")}
+                  className={`px-6 py-3 font-bold text-sm transition-all border-b-2 ${activeTab === "profile"
+                      ? "border-teal-600 text-teal-600"
+                      : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                    }`}
+                >
+                  Profile Details
+                </button>
+                <button
+                  onClick={() => setActiveTab("security")}
+                  className={`px-6 py-3 font-bold text-sm transition-all border-b-2 ${activeTab === "security"
+                      ? "border-teal-600 text-teal-600"
+                      : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                    }`}
+                >
+                  Passwords & Security
+                </button>
               </div>
+
+              {activeTab === "profile" ? (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                  {/* Profile Picture Section */}
+                  <div className="flex flex-col items-center gap-4 pb-8 border-b border-slate-200">
+                    <div className="relative">
+                      <div className="h-32 w-32 rounded-full bg-gradient-to-br from-teal-400 to-orange-400 flex items-center justify-center text-white text-4xl font-bold overflow-hidden">
+                        {profileImage ? (
+                          <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          getInitials(formData.fullName)
+                        )}
+                      </div>
+                      <label
+                        htmlFor="profile-upload"
+                        className="absolute bottom-0 right-0 bg-teal-600 hover:bg-teal-700 text-white rounded-full p-3 cursor-pointer transition-colors shadow-lg"
+                      >
+                        <Camera className="h-5 w-5" />
+                        <input
+                          id="profile-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImageUpload}
+                        />
+                      </label>
+                    </div>
+                    <p className="text-sm text-slate-600">Click camera icon to upload profile picture</p>
+                    {errors.profileImage && (
+                      <p className="text-sm text-red-600">{errors.profileImage}</p>
+                    )}
+                  </div>
+
+                  {/* Personal Information */}
+                  <div className="space-y-5">
+                    <h2 className="text-xl font-bold text-slate-900">Personal Information</h2>
+
+                    <div>
+                      <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700 mb-2">
+                        Full Name
+                      </label>
+                      <input
+                        id="fullName"
+                        name="fullName"
+                        type="text"
+                        placeholder="Enter your full name"
+                        value={formData.fullName}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2.5 border rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${errors.fullName
+                          ? "border-red-300 focus:ring-red-200"
+                          : "border-slate-300 focus:ring-teal-200"
+                          }`}
+                      />
+                      {errors.fullName && (
+                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                          <AlertCircle size={14} /> {errors.fullName}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="username" className="block text-sm font-semibold text-slate-700 mb-2">
+                        Username
+                      </label>
+                      <input
+                        id="username"
+                        name="username"
+                        type="text"
+                        placeholder="Enter your username"
+                        value={formData.username}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-teal-200 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Contact Information */}
+                  <div className="space-y-5">
+                    <h2 className="text-xl font-bold text-slate-900">Contact Information</h2>
+
+                    <div>
+                      <label htmlFor="email" className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                        <Mail size={16} className="text-teal-600" />
+                        Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="your.email@example.com"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2.5 border rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${errors.email
+                          ? "border-red-300 focus:ring-red-200"
+                          : "border-slate-300 focus:ring-teal-200"
+                          }`}
+                      />
+                      {errors.email && (
+                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                          <AlertCircle size={14} /> {errors.email}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="phone" className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                        <Phone size={16} className="text-teal-600" />
+                        Phone Number
+                      </label>
+                      <input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        placeholder="+977 98XX XXX XXX"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2.5 border rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${errors.phone
+                          ? "border-red-300 focus:ring-red-200"
+                          : "border-slate-300 focus:ring-teal-200"
+                          }`}
+                      />
+                      {errors.phone && (
+                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                          <AlertCircle size={14} /> {errors.phone}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="location" className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                        <MapPin size={16} className="text-teal-600" />
+                        Location {isLocationEnabled ? "(Real-time)" : "(Manual Address)"}
+                      </label>
+                      <div className="flex flex-col gap-3">
+                        <input
+                          id="location"
+                          name="location"
+                          type="text"
+                          placeholder="City, Country or Street Address"
+                          value={isLocationEnabled ? (currentAddressName || (isGeocoding ? "Locating area..." : "Real-time Location Active")) : formData.location}
+                          onChange={handleInputChange}
+                          disabled={isLocationEnabled}
+                          className={`w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-teal-200 transition-all ${(isLocationEnabled || isLocationVerified) ? "bg-teal-50/30 text-teal-700 font-bold" : ""}`}
+                        />
+
+                        {(isLocationEnabled || isLocationVerified) && (currentAddressName || isGeocoding) && (
+                          <div className="p-3 bg-teal-50 border border-teal-100 rounded-xl animate-in fade-in slide-in-from-top-1 duration-300">
+                            <p className="text-xs font-bold text-teal-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+                              {isGeocoding ? `Updating...` : isLocationEnabled ? `📍 Live Tracking Active` : `📍 Saved Verified Location`}
+                            </p>
+                            <p className="text-sm text-teal-900 font-semibold">
+                              {isGeocoding ? "Calculating address..." : currentAddressName || formData.location}
+                            </p>
+                          </div>
+                        )}
+
+                        {!isLocationEnabled ? (
+                          <button
+                            type="button"
+                            onClick={startTracking}
+                            className="flex items-center justify-center gap-2 py-2 px-4 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl hover:bg-teal-100 transition-all font-semibold text-sm"
+                          >
+                            <MapPin size={16} />
+                            {isLocationVerified ? "Update with Real-time Location" : "Enable Real-time Location"}
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-2 text-xs text-green-600 font-medium px-2">
+                            <CheckCircle2 size={12} /> Live tracking active
+                          </div>
+                        )}
+
+                        {errors.location && (
+                          <p className="text-xs text-red-500 font-medium">{errors.location}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* User Analytics */}
+                  <div className="space-y-4 pb-8 border-b border-slate-200">
+                    <h2 className="text-xl font-bold text-slate-900">User Analytics</h2>
+                    <div className="bg-slate-100 rounded-xl p-6">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600 font-semibold">Total Bookings</span>
+                        <span className="text-4xl font-bold text-teal-600">{formData.totalBookings || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Account Verification */}
+                  <div className="space-y-4 pb-8">
+                    <h2 className="text-xl font-bold text-slate-900">Account Verification</h2>
+                    <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
+                      <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0" />
+                      <span className="text-green-700 font-semibold">Email Verified</span>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      onClick={handleSaveChanges}
+                      disabled={isLoading}
+                      className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-bold py-3 px-6 rounded-xl transition-all transform hover:-translate-y-0.5 shadow-md"
+                    >
+                      {isLoading ? "Saving..." : "Save Changes"}
+                    </button>
+                    <button
+                      onClick={handleCancel}
+                      className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-6 rounded-xl transition-all transform hover:-translate-y-0.5"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="h-12 w-12 bg-teal-50 rounded-2xl flex items-center justify-center text-teal-600">
+                        <ShieldCheck size={28} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-900">Change Password</h2>
+                        <p className="text-sm text-slate-500 font-medium">Update your account password for better security</p>
+                      </div>
+                    </div>
+
+                    {passwordErrors.general && (
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 font-semibold flex items-center gap-2">
+                        <AlertCircle size={20} />
+                        {passwordErrors.general}
+                      </div>
+                    )}
+
+                    <div className="space-y-5">
+                      <div>
+                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                          <Lock size={16} className="text-teal-600" />
+                          Current Password
+                        </label>
+                        <input
+                          type="password"
+                          name="currentPassword"
+                          value={passwordData.currentPassword}
+                          onChange={handlePasswordChange}
+                          placeholder="••••••••"
+                          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-teal-200 transition-all"
+                        />
+                        {passwordErrors.currentPassword && (
+                          <p className="mt-1 text-sm text-red-600 tracking-tight">{passwordErrors.currentPassword}</p>
+                        )}
+                      </div>
+
+                      <div className="group">
+                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                          <Key size={16} className="text-teal-600" />
+                          New Password
+                        </label>
+                        <input
+                          type="password"
+                          name="newPassword"
+                          value={passwordData.newPassword}
+                          onChange={handlePasswordChange}
+                          placeholder="New secure password"
+                          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-teal-200 transition-all"
+                        />
+                        {passwordErrors.newPassword && (
+                          <p className="mt-1 text-sm text-red-600 tracking-tight">{passwordErrors.newPassword}</p>
+                        )}
+                        <p className="mt-1.5 text-[11px] text-slate-400 font-medium italic">Make sure it's at least 6 characters long.</p>
+                      </div>
+
+                      <div>
+                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                          <CheckCircle2 size={16} className="text-teal-600" />
+                          Confirm New Password
+                        </label>
+                        <input
+                          type="password"
+                          name="confirmPassword"
+                          value={passwordData.confirmPassword}
+                          onChange={handlePasswordChange}
+                          placeholder="Re-type new password"
+                          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-teal-200 transition-all"
+                        />
+                        {passwordErrors.confirmPassword && (
+                          <p className="mt-1 text-sm text-red-600 tracking-tight">{passwordErrors.confirmPassword}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-6 border-t border-slate-100">
+                      <button
+                        onClick={submitPasswordChange}
+                        disabled={isChangingPassword}
+                        className="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-black py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-teal-100 flex items-center justify-center gap-2 active:scale-95"
+                      >
+                        {isChangingPassword ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Updating Password...
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck size={20} />
+                            Update Password
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Security Info Card */}
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 mt-8">
+                      <h3 className="text-slate-900 font-bold mb-3 flex items-center gap-2">
+                        <AlertCircle size={18} className="text-orange-500" />
+                        Security Recommendations
+                      </h3>
+                      <ul className="space-y-2.5">
+                        {[
+                          "Use a combination of letters, numbers, and symbols",
+                          "Avoid using common words or personal info",
+                          "Don't reuse passwords across other sites",
+                          "Keep your login credentials private and secure"
+                        ].map((text, i) => (
+                          <li key={i} className="flex gap-2 text-sm text-slate-600 font-medium">
+                            <span className="h-5 w-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] shrink-0">{i + 1}</span>
+                            {text}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </main>

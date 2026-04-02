@@ -31,7 +31,13 @@ const storage = multer.diskStorage({
     cb(null, name);
   }
 });
-const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
+const upload = multer({ 
+  storage, 
+  limits: { 
+    fileSize: 100 * 1024 * 1024, // 100MB
+    fieldSize: 50 * 1024 * 1024  // 50MB for base64 strings/fields
+  } 
+});
 
 /* =========================
    TEST
@@ -372,6 +378,36 @@ router.put("/:userId/profile", upload.single("profileImage"), async (req, res) =
     await user.save();
     console.log("User profile saved successfully");
 
+    // SYNC: Also update linked Professional profile if it exists
+    try {
+      const professionalUpdate = {};
+      if (fullName) {
+        const nameParts = fullName.split(" ");
+        professionalUpdate.firstName = nameParts[0] || "";
+        professionalUpdate.lastName = nameParts.slice(1).join(" ") || "";
+      }
+      if (email) professionalUpdate.email = email;
+      if (phone) professionalUpdate.phone = phone;
+      if (location) {
+        professionalUpdate.serviceArea = location; // Or however you map address to serviceArea
+        professionalUpdate.formattedAddress = location;
+      }
+      if (user.profileImage) professionalUpdate.profileImage = user.profileImage;
+      if (username) professionalUpdate.username = username;
+
+      const pro = await ProfessionalModel.findOneAndUpdate(
+        { userId: userId },
+        { $set: professionalUpdate },
+        { new: true }
+      );
+      if (pro) {
+        console.log("Synchronized Professional profile for userId:", userId);
+      }
+    } catch (syncErr) {
+      console.error("Failed to sync Professional profile:", syncErr);
+      // Non-blocking for the user
+    }
+
     res.json({
       message: "Profile updated successfully",
       user: {
@@ -422,11 +458,80 @@ router.get("/:userId/profile", async (req, res) => {
 });
 
 /* =========================
+   FIND USER (FOR MESSAGING)
+========================= */
+router.get("/find", verifyToken, async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+
+    // Try finding in User collection first
+    let user = await User.findOne({ email }).select('name profileImage email');
+    
+    // If not found in User, check Professional collection
+    if (!user) {
+      const professional = await ProfessionalModel.findOne({ email });
+      if (professional && professional.userId) {
+        user = await User.findById(professional.userId).select('name profileImage email');
+      } else if (professional) {
+         // If for some reason there's no userId link but they are a professional, 
+         // we might need to handle this or just return the professional data 
+         // but the message system requires a User ID.
+         return res.status(404).json({ message: "This professional is not linked to a user account." });
+      }
+    }
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ success: true, data: user });
+  } catch (err) {
+    console.error("Find user error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* =========================
    LOCATION UPDATES
 ========================= */
-
 router.put("/update-location", verifyToken, updateLocation);
 router.get("/nearby-professionals", verifyToken, getNearbyProfessionals);
 
+/* =========================
+   CHANGE PASSWORD
+========================= */
+router.put("/:userId/change-password", verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Current and new passwords are required" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Check if current password matches
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(401).json({ message: "Invalid current password" });
+
+    // Validate new password (optional, e.g. length)
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters long" });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    console.error("Change password error:", err);
+    res.status(500).json({ message: "Failed to update password: " + err.message });
+  }
+});
+
 export default router;
+
 

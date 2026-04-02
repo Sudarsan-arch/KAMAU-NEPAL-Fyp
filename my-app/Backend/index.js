@@ -9,6 +9,8 @@ import authRoute from "./authRoute.js";
 import bookingRoute from "./bookingRoute.js";
 import reviewRoute from "./reviewRoute.js";
 import notificationRoute from "./notificationRoute.js";
+import messageRoute from "./messageRoute.js";
+import paymentRoute from "./paymentRoute.js";
 import path from "path";
 
 dotenv.config();
@@ -44,6 +46,8 @@ app.use("/api/auth", authRoute);
 app.use("/api/bookings", bookingRoute);
 app.use("/api/reviews", reviewRoute);
 app.use("/api/notifications", notificationRoute);
+app.use("/api/messages", messageRoute);
+app.use("/api/payments", paymentRoute);
 
 // Serve uploaded images
 app.use('/uploads', express.static(path.join(path.resolve(), 'uploads')));

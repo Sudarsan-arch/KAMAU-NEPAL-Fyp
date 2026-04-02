@@ -242,7 +242,7 @@ export const broadcastNotification = async (payload) => {
   }
 };
 
-export default {
+const adminServiceData = {
   getDashboardStats,
   getAnalyticsData,
   getRecentApplications,
@@ -258,3 +258,5 @@ export default {
   exportData,
   broadcastNotification,
 };
+
+export default adminServiceData;

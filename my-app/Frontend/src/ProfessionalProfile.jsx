@@ -3,9 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Star, MapPin, CheckCircle2, ShieldCheck,
   Calendar, MessageSquare, ArrowLeft, Share2, Award,
-  Clock, Briefcase, GraduationCap, UserCircle, X, Send, Check
+  Clock, Briefcase, GraduationCap, UserCircle, X, Send, Check, ThumbsUp, Lock
 } from 'lucide-react';
 import axios from 'axios';
+import { submitReview, getProfessionalReviews } from './services/reviewService';
 
 // Button Component
 const Button = ({
@@ -55,15 +56,30 @@ const ProfessionalProfile = () => {
   const [requestTime, setRequestTime] = useState('');
   const [requestLocation, setRequestLocation] = useState('');
 
+  // Review States
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [canReview, setCanReview] = useState(false);
+
+
+  const userId = localStorage.getItem('userId');
+  const isSelf = profile?.userId === userId || profile?._id === userId;
+
+
   useEffect(() => {
     window.scrollTo(0, 0);
     const fetchProfessionalProfile = async () => {
       try {
         setLoading(true);
         setError(null);
-        // Using absolute URL to match existing backend logic
         const response = await axios.get(`/api/professionals/${id}`);
-
         if (response.data.success) {
           setProfile(response.data.data);
           setImageLoaded(false);
@@ -78,8 +94,42 @@ const ProfessionalProfile = () => {
       }
     };
 
+    const fetchReviews = async () => {
+      try {
+        setReviewsLoading(true);
+        const data = await getProfessionalReviews(id);
+        if (data.success) {
+          setReviews(data.data || []);
+          const userId = localStorage.getItem('userId');
+          if (userId) {
+            const already = (data.data || []).some(r => String(r.userId) === String(userId) || String(r.userId?._id) === String(userId));
+            setAlreadyReviewed(already);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching reviews:', err);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    const checkEligibility = async () => {
+      const userId = localStorage.getItem('userId');
+      if (userId && id) {
+        try {
+          const { checkUserBookingStatus } = await import('./bookingService');
+          const res = await checkUserBookingStatus(userId, id);
+          setCanReview(res.hasBooking);
+        } catch (err) {
+          console.error('Error checking review eligibility:', err);
+        }
+      }
+    };
+
     if (id) {
       fetchProfessionalProfile();
+      fetchReviews();
+      checkEligibility();
     }
   }, [id]);
 
@@ -133,7 +183,14 @@ const ProfessionalProfile = () => {
       navigate('/login');
       return;
     }
-    alert(`Chat with ${profile?.firstName} - Messaging system to be implemented`);
+    // Navigate to messages and pass recipient info in state
+    navigate('/messages', { 
+      state: { 
+        composeTo: profile?.userId || profile?._id, // Prefer userId if available (linked user doc)
+        recipientEmail: profile?.email,
+        subject: `Inquiry about ${formatServiceCategory(profile?.serviceCategory)}`
+      } 
+    });
   };
 
   const handleRequestService = async (e) => {
@@ -204,6 +261,58 @@ const ProfessionalProfile = () => {
       navigator.clipboard.writeText(window.location.href);
       alert('Profile link copied to clipboard!');
     }
+  };
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    if (!token || !userId) { navigate('/login'); return; }
+    if (reviewRating === 0) { alert('Please select a star rating'); return; }
+
+    setReviewSubmitting(true);
+    try {
+      const userName = localStorage.getItem('userName') || 'Anonymous';
+      await submitReview({ professionalId: id, userId, userName, rating: reviewRating, comment: reviewComment });
+      setReviewSubmitted(true);
+      setAlreadyReviewed(true);
+      const data = await getProfessionalReviews(id);
+      if (data.success) setReviews(data.data || []);
+      setTimeout(() => {
+        setShowReviewForm(false);
+        setReviewSubmitted(false);
+        setReviewRating(0);
+        setReviewComment('');
+      }, 2500);
+    } catch (err) {
+      const msg = err?.response?.data?.message || err.message || 'Failed to submit review';
+      alert(msg);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  const renderStars = (rating, interactive = false, size = 20) => {
+    return [1,2,3,4,5].map(star => (
+      <button
+        key={star}
+        type="button"
+        disabled={!interactive}
+        onClick={() => interactive && setReviewRating(star)}
+        onMouseEnter={() => interactive && setReviewHover(star)}
+        onMouseLeave={() => interactive && setReviewHover(0)}
+        className={interactive ? 'transition-transform hover:scale-110 focus:outline-none' : 'cursor-default'}
+      >
+        <Star
+          size={size}
+          className={`transition-colors ${
+            star <= (interactive ? (reviewHover || reviewRating) : rating)
+              ? 'fill-orange-400 text-orange-400'
+              : 'text-slate-200 fill-slate-100'
+          }`}
+        />
+      </button>
+    ));
   };
 
   if (loading) {
@@ -302,7 +411,9 @@ const ProfessionalProfile = () => {
             </div>
             <div className="hidden md:flex gap-3 mb-6">
               <Button variant="outline" size="icon" className="bg-white" onClick={handleShare}><Share2 size={20} /></Button>
-              <Button variant="primary" className="gap-2 px-8" onClick={handleHire}>Hire {profile?.firstName || 'Professional'}</Button>
+              {!isSelf && (
+                <Button variant="primary" className="gap-2 px-8" onClick={handleHire}>Hire {profile?.firstName || 'Professional'}</Button>
+              )}
             </div>
           </div>
         </div>
@@ -314,7 +425,11 @@ const ProfessionalProfile = () => {
           <div className="lg:col-span-8 space-y-12">
             {/* Action buttons for mobile */}
             <div className="flex md:hidden gap-3 w-full">
-              <Button variant="primary" className="flex-grow gap-2" onClick={handleHire}>Hire {profile?.firstName || 'Professional'}</Button>
+              {!isSelf ? (
+                <Button variant="primary" className="flex-grow gap-2" onClick={handleHire}>Hire {profile?.firstName || 'Professional'}</Button>
+              ) : (
+                <Button variant="outline" className="flex-grow" onClick={() => navigate('/professional-dashboard')}>Go to Dashboard</Button>
+              )}
               <Button variant="outline" size="icon" onClick={handleShare}><Share2 size={20} /></Button>
             </div>
 
@@ -347,18 +462,148 @@ const ProfessionalProfile = () => {
               </div>
             </section>
 
-            {/* Skills */}
+            {/* Skills & Tools */}
             <section className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-slate-100">
               <h2 className="text-2xl font-black text-slate-900 mb-8 flex items-center gap-3">
-                <Award className="text-teal-600" /> Professional Skills
+                <Award className="text-teal-600" /> Skills & Expertise
               </h2>
-              <div className="flex flex-wrap gap-4">
-                {(profile?.skills && profile.skills.length > 0 ? profile.skills : ["Professional Service", "Quality Work", "Reliable", "Verified"]).map((skill) => (
-                  <span key={skill} className="px-5 py-3 rounded-2xl bg-slate-50 border border-slate-100 font-bold text-slate-700 hover:border-teal-200 hover:text-teal-600 transition-colors cursor-default">
-                    {skill}
-                  </span>
-                ))}
+              <div className="space-y-6">
+                <div className="flex flex-wrap gap-4">
+                  {(profile?.skills && profile.skills.length > 0 ? profile.skills : ["Professional Service", "Quality Work", "Reliable", "Verified"]).map((skill) => (
+                    <span key={skill} className="px-5 py-3 rounded-2xl bg-slate-50 border border-slate-100 font-bold text-slate-700 hover:border-teal-200 hover:text-teal-600 transition-colors cursor-default">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+                
+                {profile?.tools && profile.tools.length > 0 && (
+                  <div className="pt-6 border-t border-slate-50">
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Tools & Technologies</p>
+                    <div className="flex flex-wrap gap-3">
+                      {profile.tools.map((tool) => (
+                        <span key={tool} className="px-4 py-2 rounded-xl bg-teal-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-100 italic transition-transform hover:scale-105">
+                          {tool}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+            </section>
+
+            {/* ===== REVIEWS SECTION ===== */}
+            <section className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+                <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                  <Star className="text-orange-400 fill-orange-400" /> Reviews
+                  <span className="text-base font-bold text-slate-400 ml-1">({reviews.length})</span>
+                </h2>
+                {localStorage.getItem('token') && (
+                  alreadyReviewed ? (
+                    <span className="flex items-center gap-2 text-sm font-bold text-teal-600 bg-teal-50 px-4 py-2 rounded-full border border-teal-100">
+                      <Check size={16} /> You Reviewed
+                    </span>
+                  ) : canReview ? (
+                    <button
+                      onClick={() => setShowReviewForm(v => !v)}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl transition text-sm shadow-md"
+                    >
+                      <Star size={16} /> Write a Review
+                    </button>
+                  ) : (
+                    <div className="group relative">
+                      <button
+                        disabled
+                        className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 text-slate-400 font-bold rounded-2xl transition text-sm cursor-not-allowed border border-slate-200"
+                      >
+                        <Lock size={16} /> Write a Review
+                      </button>
+                      <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center shadow-xl z-10">
+                        You can only review after your service is approved/completed by the professional.
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* Review Form */}
+              {showReviewForm && !alreadyReviewed && (
+                <div className="mb-8 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                  {reviewSubmitted ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-3 animate-bounce">
+                        <Check size={32} />
+                      </div>
+                      <p className="font-black text-slate-900 text-lg">Thank you for your review!</p>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSubmitReview} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Your Rating</label>
+                        <div className="flex items-center gap-1">
+                          {renderStars(reviewRating, true, 32)}
+                          <span className="ml-3 text-sm font-bold text-slate-500">
+                            {reviewRating === 1 ? 'Poor' : reviewRating === 2 ? 'Fair' : reviewRating === 3 ? 'Good' : reviewRating === 4 ? 'Very Good' : reviewRating === 5 ? 'Excellent!' : ''}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Your Comment</label>
+                        <textarea
+                          value={reviewComment}
+                          onChange={e => setReviewComment(e.target.value)}
+                          placeholder={`Share your experience with ${profile?.firstName}...`}
+                          className="w-full p-4 rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-400 text-slate-800 font-medium resize-none"
+                          rows={3}
+                          required
+                        />
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          type="submit"
+                          disabled={reviewSubmitting || reviewRating === 0}
+                          className="flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black rounded-2xl transition"
+                        >
+                          {reviewSubmitting ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>Submitting...</> : <><Send size={16}/>Submit Review</>}
+                        </button>
+                        <button type="button" onClick={() => setShowReviewForm(false)} className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-50 transition">
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {/* Reviews List */}
+              {reviewsLoading ? (
+                <div className="text-center py-8 text-slate-400 font-bold animate-pulse">Loading reviews...</div>
+              ) : reviews.length === 0 ? (
+                <div className="text-center py-12">
+                  <ThumbsUp size={40} className="mx-auto text-slate-200 mb-3" />
+                  <p className="font-bold text-slate-400">No reviews yet. Be the first to share your experience!</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {reviews.map((review) => (
+                    <div key={review._id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-black text-sm">
+                            {(review.userName || 'U')[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-black text-slate-900 text-sm">{review.userName || 'Anonymous'}</p>
+                            <p className="text-xs text-slate-400 font-medium">{new Date(review.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-0.5">{renderStars(review.rating, false, 14)}</div>
+                      </div>
+                      <p className="text-slate-600 font-medium leading-relaxed">"{review.comment}"</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Education & Certificates */}
@@ -416,16 +661,35 @@ const ProfessionalProfile = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <Button
-                    className="w-full gap-2 py-4"
-                    variant="primary"
-                    onClick={() => handleHire()}
-                  >
-                    <Calendar size={20} /> Request Service
-                  </Button>
-                  <Button className="w-full gap-2 py-4" variant="secondary" onClick={handleChat}>
-                    <MessageSquare size={20} /> Chat with {profile?.firstName || 'Professional'}
-                  </Button>
+                  {!isSelf ? (
+                    <>
+                      <Button
+                        className="w-full gap-2 py-4"
+                        variant="primary"
+                        onClick={() => handleHire()}
+                      >
+                        <Calendar size={20} /> Request Service
+                      </Button>
+                      <Button className="w-full gap-2 py-4" variant="secondary" onClick={handleChat}>
+                        <MessageSquare size={20} /> Chat with {profile?.firstName || 'Professional'}
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="p-8 bg-slate-50 rounded-[32px] border border-slate-100 text-center">
+                       <div className="w-16 h-16 bg-teal-100 rounded-2xl flex items-center justify-center text-teal-600 mx-auto mb-4">
+                         <ShieldCheck size={32} />
+                       </div>
+                       <p className="text-base font-black text-slate-900 uppercase tracking-tight">Your Expert Profile</p>
+                       <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">Personal Management View</p>
+                       <Button 
+                         variant="outline" 
+                         className="w-full mt-6 py-4 text-xs tracking-widest uppercase font-black" 
+                         onClick={() => navigate('/professional-dashboard')}
+                       >
+                         Manage Availability
+                       </Button>
+                    </div>
+                  )}
                 </div>
 
                 <p className="mt-6 text-center text-xs text-slate-400 font-bold uppercase tracking-widest">
@@ -433,19 +697,33 @@ const ProfessionalProfile = () => {
                 </p>
               </section>
 
-              {/* Reviews Preview */}
+
+              {/* Reviews Preview (Sidebar) */}
               <section className="mt-8 bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-black text-slate-900">Recent Review</h3>
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="text-lg font-black text-slate-900">Top Review</h3>
                   <div className="flex gap-0.5">
                     {[...Array(5)].map((_, i) => <Star key={i} size={12} className={i < Math.floor(profile?.rating || 0) ? "fill-orange-400 text-orange-400" : "text-slate-200"} />)}
                   </div>
                 </div>
-                <p className="text-slate-500 italic font-medium mb-4">"Very professional and punctual. The quality of work was outstanding. Highly recommended for any {formatServiceCategory(profile?.serviceCategory).toLowerCase()} needs!"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-bold text-xs">👤</div>
-                  <span className="text-sm font-bold text-slate-900">Verified Customer</span>
-                </div>
+                {reviews.length > 0 ? (
+                  <>
+                    <p className="text-slate-500 italic font-medium mb-4 text-sm leading-relaxed">"{reviews[0].comment}"</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-black text-xs">
+                        {(reviews[0].userName || 'U')[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-slate-900">{reviews[0].userName}</span>
+                        <div className="flex gap-0.5 mt-0.5">
+                          {[...Array(5)].map((_, i) => <Star key={i} size={10} className={i < reviews[0].rating ? "fill-orange-400 text-orange-400" : "text-slate-200"} />)}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-slate-400 text-sm font-medium">No reviews yet. Be the first!</p>
+                )}
               </section>
             </div>
           </div>

@@ -19,4 +19,11 @@ const fileFilter = (req, file, cb) => {
   else cb("Only images allowed!");
 };
 
-export const upload = multer({ storage, fileFilter });
+export const upload = multer({ 
+  storage, 
+  fileFilter,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB
+    fieldSize: 50 * 1024 * 1024  // 50MB for field data
+  }
+});
