@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     MessageSquare,
     Send,
@@ -9,7 +9,6 @@ import {
     MoreVertical,
     ChevronLeft,
     X,
-    Menu,
     Phone,
     Video,
     Smile,
@@ -25,8 +24,6 @@ import {
     getConversations, 
     getMessageThread, 
     sendMessage, 
-    updateMessageStatus, 
-    deleteMessage,
     uploadAttachment
 } from '../services/messageService';
 import { FileText, Download } from 'lucide-react';
@@ -66,8 +63,37 @@ export default function MessagePage() {
 
     const currentUserId = localStorage.getItem('userId');
     const userName = localStorage.getItem('userName') || 'User';
-    const userEmail = localStorage.getItem('userEmail') || '';
     const userProfileImage = localStorage.getItem('userProfileImage');
+
+    const fetchConversations = useCallback(async () => {
+        try {
+            setLoadingConversations(true);
+            const response = await getConversations();
+            if (response.success) {
+                setConversations(response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching conversations:', error);
+        } finally {
+            setLoadingConversations(false);
+        }
+    }, []);
+
+    const fetchThread = useCallback(async (userId) => {
+        try {
+            setLoadingThread(true);
+            const response = await getMessageThread(userId);
+            if (response.success) {
+                setThread(response.data);
+                // After opening thread, refresh conversations to update unread badges
+                fetchConversations();
+            }
+        } catch (error) {
+            console.error('Error fetching thread:', error);
+        } finally {
+            setLoadingThread(false);
+        }
+    }, [fetchConversations]);
 
     useEffect(() => {
         fetchConversations();
@@ -89,7 +115,7 @@ export default function MessagePage() {
             // Clear state
             window.history.replaceState({}, document.title);
         }
-    }, [location.state]);
+    }, [location.state, fetchConversations, fetchThread]);
 
     useEffect(() => {
         scrollToBottom();
@@ -97,36 +123,6 @@ export default function MessagePage() {
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    const fetchConversations = async () => {
-        try {
-            setLoadingConversations(true);
-            const response = await getConversations();
-            if (response.success) {
-                setConversations(response.data);
-            }
-        } catch (error) {
-            console.error('Error fetching conversations:', error);
-        } finally {
-            setLoadingConversations(false);
-        }
-    };
-
-    const fetchThread = async (userId) => {
-        try {
-            setLoadingThread(true);
-            const response = await getMessageThread(userId);
-            if (response.success) {
-                setThread(response.data);
-                // After opening thread, refresh conversations to update unread badges
-                fetchConversations();
-            }
-        } catch (error) {
-            console.error('Error fetching thread:', error);
-        } finally {
-            setLoadingThread(false);
-        }
     };
 
     const handleSelectConversation = (conv) => {

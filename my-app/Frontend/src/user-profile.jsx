@@ -10,7 +10,9 @@ export default function UserProfile() {
   const [profileImage, setProfileImage] = useState(null)
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
-    username: localStorage.getItem("userName") || "",
+    username: localStorage.getItem("username") || "",
+    firstName: localStorage.getItem("firstName") || "",
+    lastName: localStorage.getItem("lastName") || "",
     fullName: localStorage.getItem("userName") || "",
     email: localStorage.getItem("userEmail") || "",
     phone: localStorage.getItem("userPhone") || "",
@@ -34,6 +36,14 @@ export default function UserProfile() {
     confirmPassword: "",
   })
   const [passwordErrors, setPasswordErrors] = useState({})
+  const [passwordStrength, setPasswordStrength] = useState({
+    length: false,
+    upper: false,
+    lower: false,
+    number: false,
+    special: false
+  })
+  const [strengthScore, setStrengthScore] = useState(0)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
 
   // Reusable function to get address from OSM Nominatim
@@ -108,7 +118,9 @@ export default function UserProfile() {
         if (response.data.user) {
           const user = response.data.user
           setFormData({
-            username: user.username || user.name || "",
+            username: user.username || "",
+            firstName: user.firstName || "",
+            lastName: user.lastName || "",
             fullName: user.name || "",
             email: user.email || "",
             phone: user.phone || "",
@@ -127,8 +139,11 @@ export default function UserProfile() {
 
           // Update localStorage with database values (only if they exist)
           if (user.name) localStorage.setItem("userName", user.name)
+          if (user.firstName) localStorage.setItem("firstName", user.firstName)
+          if (user.lastName) localStorage.setItem("lastName", user.lastName)
           if (user.email) localStorage.setItem("userEmail", user.email)
           if (user.phone) localStorage.setItem("userPhone", user.phone)
+          if (user.username) localStorage.setItem("username", user.username)
           if (user.formattedAddress || typeof user.location === 'string') {
             const loc = user.formattedAddress || user.location;
             localStorage.setItem("userLocation", loc)
@@ -154,7 +169,9 @@ export default function UserProfile() {
         const userImage = localStorage.getItem("userProfileImage")
 
         setFormData({
-          username: userName,
+          username: localStorage.getItem("username") || "",
+          firstName: localStorage.getItem("firstName") || "",
+          lastName: localStorage.getItem("lastName") || "",
           fullName: userName,
           email: userEmail,
           phone: userPhone,
@@ -257,8 +274,11 @@ export default function UserProfile() {
   const validateForm = () => {
     const newErrors = {}
 
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = "Full name is required"
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "First name is required"
+    }
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Last name is required"
     }
     if (!formData.email.trim()) {
       newErrors.email = "Email is required"
@@ -310,7 +330,8 @@ export default function UserProfile() {
 
       // Prepare form data for multipart upload
       const formDataToSend = new FormData()
-      formDataToSend.append("fullName", formData.fullName)
+      formDataToSend.append("firstName", formData.firstName)
+      formDataToSend.append("lastName", formData.lastName)
       formDataToSend.append("username", formData.username)
       formDataToSend.append("email", formData.email)
       formDataToSend.append("phone", formData.phone)
@@ -332,9 +353,12 @@ export default function UserProfile() {
       console.log("Profile update response:", apiResponse.data)
 
       // Save to localStorage as backup
-      localStorage.setItem("userName", formData.fullName)
+      localStorage.setItem("userName", `${formData.firstName} ${formData.lastName}`.trim())
+      localStorage.setItem("firstName", formData.firstName)
+      localStorage.setItem("lastName", formData.lastName)
       localStorage.setItem("userEmail", formData.email)
       localStorage.setItem("userPhone", formData.phone)
+      localStorage.setItem("username", formData.username)
       localStorage.setItem("userLocation", formData.location)
 
       if (profileImage) {
@@ -390,12 +414,33 @@ export default function UserProfile() {
     setWatchId(id)
   }
 
+  const checkPasswordStrength = (pass) => {
+    const length = pass.length >= 8;
+    const upper = /[A-Z]/.test(pass);
+    const lower = /[a-z]/.test(pass);
+    const number = /[0-9]/.test(pass);
+    const special = /[!@#$%^&*()_+{}\[\]:;<>,.?~\\/\-]/.test(pass);
+
+    setPasswordStrength({ length, upper, lower, number, special });
+
+    let score = 0;
+    if (length) score++;
+    if (upper) score++;
+    if (lower) score++;
+    if (number) score++;
+    if (special) score++;
+    setStrengthScore(score);
+  };
+
   const handlePasswordChange = (e) => {
     const { name, value } = e.target
     setPasswordData({
       ...passwordData,
       [name]: value,
     })
+    if (name === 'newPassword') {
+      checkPasswordStrength(value);
+    }
     if (passwordErrors[name]) {
       setPasswordErrors({
         ...passwordErrors,
@@ -409,8 +454,8 @@ export default function UserProfile() {
     if (!passwordData.currentPassword) newErrors.currentPassword = "Current password is required"
     if (!passwordData.newPassword) {
       newErrors.newPassword = "New password is required"
-    } else if (passwordData.newPassword.length < 6) {
-      newErrors.newPassword = "New password must be at least 6 characters"
+    } else if (strengthScore < 5) {
+      newErrors.newPassword = "Weak password. Please meet all requirements."
     }
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match"
@@ -427,7 +472,7 @@ export default function UserProfile() {
       const userId = localStorage.getItem("userId")
       const token = localStorage.getItem("token")
 
-      const response = await axios.put(
+      await axios.put(
         `/api/users/${userId}/change-password`,
         {
           currentPassword: passwordData.currentPassword,
@@ -612,27 +657,52 @@ export default function UserProfile() {
                   <div className="space-y-5">
                     <h2 className="text-xl font-bold text-slate-900">Personal Information</h2>
 
-                    <div>
-                      <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Full Name
-                      </label>
-                      <input
-                        id="fullName"
-                        name="fullName"
-                        type="text"
-                        placeholder="Enter your full name"
-                        value={formData.fullName}
-                        onChange={handleInputChange}
-                        className={`w-full px-4 py-2.5 border rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${errors.fullName
-                          ? "border-red-300 focus:ring-red-200"
-                          : "border-slate-300 focus:ring-teal-200"
-                          }`}
-                      />
-                      {errors.fullName && (
-                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                          <AlertCircle size={14} /> {errors.fullName}
-                        </p>
-                      )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="firstName" className="block text-sm font-semibold text-slate-700 mb-2">
+                          First Name
+                        </label>
+                        <input
+                          id="firstName"
+                          name="firstName"
+                          type="text"
+                          placeholder="Your first name"
+                          value={formData.firstName}
+                          onChange={handleInputChange}
+                          className={`w-full px-4 py-2.5 border rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${errors.firstName
+                            ? "border-red-300 focus:ring-red-200"
+                            : "border-slate-300 focus:ring-teal-200"
+                            }`}
+                        />
+                        {errors.firstName && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle size={14} /> {errors.firstName}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label htmlFor="lastName" className="block text-sm font-semibold text-slate-700 mb-2">
+                          Last Name
+                        </label>
+                        <input
+                          id="lastName"
+                          name="lastName"
+                          type="text"
+                          placeholder="Your last name"
+                          value={formData.lastName}
+                          onChange={handleInputChange}
+                          className={`w-full px-4 py-2.5 border rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${errors.lastName
+                            ? "border-red-300 focus:ring-red-200"
+                            : "border-slate-300 focus:ring-teal-200"
+                            }`}
+                        />
+                        {errors.lastName && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle size={14} /> {errors.lastName}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     <div>
@@ -845,7 +915,52 @@ export default function UserProfile() {
                         {passwordErrors.newPassword && (
                           <p className="mt-1 text-sm text-red-600 tracking-tight">{passwordErrors.newPassword}</p>
                         )}
-                        <p className="mt-1.5 text-[11px] text-slate-400 font-medium italic">Make sure it's at least 6 characters long.</p>
+                        {passwordData.newPassword && (
+                          <div className="mt-3 text-xs">
+                            <div className="flex gap-1 h-1.5 mt-1 rounded-full overflow-hidden bg-slate-200">
+                              {[1, 2, 3, 4, 5].map((val) => (
+                                <div
+                                  key={val}
+                                  className={`flex-1 ${
+                                    strengthScore >= val
+                                      ? strengthScore < 3
+                                        ? 'bg-red-500'
+                                        : strengthScore < 5
+                                        ? 'bg-yellow-500'
+                                        : 'bg-green-500'
+                                      : 'bg-transparent'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <p className={`mt-1 font-medium ${
+                              strengthScore < 3 ? 'text-red-500' : strengthScore < 5 ? 'text-yellow-600' : 'text-green-600'
+                            }`}>
+                              {strengthScore < 3 && 'Weak password'}
+                              {strengthScore >= 3 && strengthScore < 5 && 'Fair password'}
+                              {strengthScore === 5 && 'Strong password'}
+                            </p>
+                            {strengthScore < 5 && (
+                              <ul className="mt-2 space-y-1 text-slate-500 font-medium">
+                                <li className={`flex items-center gap-1 ${passwordStrength.length ? "text-green-600" : ""}`}>
+                                  {passwordStrength.length ? "✓" : "○"} At least 8 characters
+                                </li>
+                                <li className={`flex items-center gap-1 ${passwordStrength.upper ? "text-green-600" : ""}`}>
+                                  {passwordStrength.upper ? "✓" : "○"} Uppercase letter
+                                </li>
+                                <li className={`flex items-center gap-1 ${passwordStrength.lower ? "text-green-600" : ""}`}>
+                                  {passwordStrength.lower ? "✓" : "○"} Lowercase letter
+                                </li>
+                                <li className={`flex items-center gap-1 ${passwordStrength.number ? "text-green-600" : ""}`}>
+                                  {passwordStrength.number ? "✓" : "○"} Number
+                                </li>
+                                <li className={`flex items-center gap-1 ${passwordStrength.special ? "text-green-600" : ""}`}>
+                                  {passwordStrength.special ? "✓" : "○"} Special character
+                                </li>
+                              </ul>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div>

@@ -1,8 +1,18 @@
 "use client"
 
-import { ArrowLeft, MapPin, Clock, DollarSign, Briefcase, Star, MessageSquare } from "lucide-react"
+import { useState } from "react"
+import { ArrowLeft, MapPin, Clock, DollarSign, Briefcase, Star, MessageSquare, CheckCircle2 } from "lucide-react"
 
 const JobDisplay = ({ job, onBack }) => {
+  const [notification, setNotification] = useState(null)
+
+  const showNotification = (message) => {
+    setNotification(message)
+    setTimeout(() => {
+      setNotification(null)
+    }, 3000)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 to-gray-100">
       {/* Header with Back Button */}
@@ -154,10 +164,16 @@ const JobDisplay = ({ job, onBack }) => {
                   </div>
                 </div>
                 <hr className="my-4" />
-                <button className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition">
+                <button 
+                  onClick={() => showNotification("Hire request sent successfully!")}
+                  className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition active:scale-[0.98]"
+                >
                   Hire Now
                 </button>
-                <button className="w-full py-3 border border-teal-600 text-teal-600 hover:bg-teal-50 font-semibold rounded-lg transition flex items-center justify-center gap-2">
+                <button 
+                  onClick={() => showNotification("Messaging feature coming soon!")}
+                  className="w-full py-3 border border-teal-600 text-teal-600 hover:bg-teal-50 font-semibold rounded-lg transition flex items-center justify-center gap-2 active:scale-[0.98]"
+                >
                   <MessageSquare size={18} />
                   Message
                 </button>
@@ -185,6 +201,14 @@ const JobDisplay = ({ job, onBack }) => {
           </div>
         </div>
       </div>
+
+      {/* Toast Notification Popup */}
+      {notification && (
+        <div className="fixed bottom-6 right-6 bg-slate-900 border border-slate-700 text-white px-6 py-4 rounded-xl shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-300 z-50 flex items-center gap-3">
+          <CheckCircle2 size={20} className="text-teal-400" />
+          <span className="font-semibold text-sm">{notification}</span>
+        </div>
+      )}
     </div>
   )
 }

@@ -6,7 +6,6 @@ import {
   Search,
   Star,
   Calendar,
-  DollarSign,
   CheckCircle,
   Clock,
   AlertCircle,
@@ -19,7 +18,7 @@ import {
 } from 'lucide-react';
 import Logo from '../Logo';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { getUserBookings, deleteBooking, updateBookingStatus } from '../bookingService';
+import { getUserBookings, deleteBooking } from '../bookingService';
 import { submitReview } from '../services/reviewService';
 import { Send } from 'lucide-react';
 
@@ -47,8 +46,8 @@ const ServicesHistory = () => {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
-  const [reviewedBookings, setReviewedBookings] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('reviewedBookings') || '[]'); }
+  const [reviewedProfessionals, setReviewedProfessionals] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('reviewedProfessionals') || '[]'); }
     catch { return []; }
   });
 
@@ -211,9 +210,9 @@ const ServicesHistory = () => {
     try {
       await submitReview({ professionalId, userId, userName, rating: reviewRating, comment: reviewComment });
       setReviewSubmitted(true);
-      const updated = [...reviewedBookings, reviewBooking._id];
-      setReviewedBookings(updated);
-      localStorage.setItem('reviewedBookings', JSON.stringify(updated));
+      const updated = [...reviewedProfessionals, professionalId];
+      setReviewedProfessionals(updated);
+      localStorage.setItem('reviewedProfessionals', JSON.stringify(updated));
       setTimeout(() => {
         setShowReviewModal(false);
         setReviewBooking(null);
@@ -225,8 +224,6 @@ const ServicesHistory = () => {
       setReviewSubmitting(false);
     }
   };
-
-  const hasReviewed = (bookingId) => reviewedBookings.includes(bookingId);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -377,7 +374,7 @@ const ServicesHistory = () => {
                           </td>
                           <td className="px-6 py-5 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {item.status === 'Completed' && !hasReviewed(item._id) && (
+                              {item.status === 'Completed' && !reviewedProfessionals.includes(item.professionalId?._id || item.professionalId) && (
                                 <button
                                   onClick={() => openReviewModal(item)}
                                   className="p-2 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-lg transition border border-orange-100"
@@ -386,7 +383,7 @@ const ServicesHistory = () => {
                                   <Star size={18} className="fill-orange-500" />
                                 </button>
                               )}
-                              {item.status === 'Completed' && hasReviewed(item._id) && (
+                              {item.status === 'Completed' && reviewedProfessionals.includes(item.professionalId?._id || item.professionalId) && (
                                 <span className="p-2 text-teal-600 bg-teal-50 rounded-lg border border-teal-100" title="Reviewed">
                                   <CheckCircle size={18} />
                                 </span>

@@ -13,6 +13,7 @@ export const getDashboardStats = async (req, res) => {
     const totalPending = await ProfessionalModel.countDocuments({ verificationStatus: 'pending' });
     const totalApproved = await ProfessionalModel.countDocuments({ verificationStatus: 'verified' });
     const totalRejected = await ProfessionalModel.countDocuments({ verificationStatus: 'rejected' });
+    const totalUsers = await UserModel.countDocuments();
 
     return res.status(200).json({
       success: true,
@@ -20,7 +21,8 @@ export const getDashboardStats = async (req, res) => {
         totalApplications,
         totalPending,
         totalApproved,
-        totalRejected
+        totalRejected,
+        totalUsers
       }
     });
   } catch (error) {
@@ -347,7 +349,7 @@ export const rejectProfessional = async (req, res) => {
         userId: professional.userId,
         type: 'system',
         title: 'Professional Profile Update',
-        description: `Your professional profile application was not approved at this time. Reason: ${rejectionReason}`,
+        description: `Your professional profile application was not approved at this time. Reason: ${rejectionReason}. You are welcome to submit a new application after addressing the reasons for rejection.`,
       });
     }
 
@@ -619,6 +621,137 @@ export const broadcastNotification = async (req, res) => {
       success: false,
       message: 'Failed to broadcast notification',
       error: error.message,
+    });
+  }
+};
+
+/**
+ * Get all registered users for admin view
+ * @param {Object} req - Request object (query params: page, limit, search)
+ * @param {Object} res - Response object
+ */
+export const getAllUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search } = req.query;
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { username: { $regex: search, $options: 'i' } },
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const users = await UserModel.find(query)
+      .select('-password')
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await UserModel.countDocuments(query);
+
+    return res.status(200).json({
+      success: true,
+      data: users,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch users',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Delete a user and their associated professional profile if it exists
+ * @param {Object} req - Request object (params: id)
+ * @param {Object} res - Response object
+ */
+export const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await UserModel.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Delete associated professional profile if it exists
+    await ProfessionalModel.findOneAndDelete({ userId: id });
+
+    // Delete the user
+    await UserModel.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'User and associated records deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete user',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Delete a professional profile (keeps the user account)
+ * @param {Object} req - Request object (params: id)
+ * @param {Object} res - Response object
+ */
+export const deleteProfessional = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const professional = await ProfessionalModel.findById(id);
+    if (!professional) {
+      return res.status(404).json({
+        success: false,
+        message: 'Professional profile not found'
+      });
+    }
+
+    // Send notification to the user before deleting
+    if (professional.userId) {
+      await NotificationModel.create({
+        userId: professional.userId,
+        type: 'system',
+        title: 'Professional Profile Removed',
+        description: 'Your professional profile has been removed by the administrator. You are free to register again if you wish to restart your application.',
+      });
+    }
+
+    // Delete the professional profile
+    await ProfessionalModel.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Professional profile deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting professional:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete professional profile',
+      error: error.message
     });
   }
 };

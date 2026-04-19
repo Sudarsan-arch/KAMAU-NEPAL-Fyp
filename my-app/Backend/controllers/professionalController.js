@@ -3,6 +3,7 @@ import NotificationModel from '../models/notificationModel.js';
 import fs from 'fs';
 import path from 'path';
 import { createNotification } from './notificationController.js';
+import sharp from 'sharp';
 
 // Register a new professional service provider
 export const registerProfessional = async (req, res) => {
@@ -50,40 +51,90 @@ export const registerProfessional = async (req, res) => {
     if (userId) {
       const existingProfile = await ProfessionalModel.findOne({ userId });
       if (existingProfile) {
-        console.log('❌ User already has a professional profile:', userId);
-        return res.status(409).json({
-          success: false,
-          message: 'You have already registered as a professional',
-          verificationStatus: existingProfile.verificationStatus
-        });
+        if (existingProfile.verificationStatus === 'rejected') {
+          console.log('♻️  Removing previous rejected profile for user:', userId);
+          await ProfessionalModel.deleteOne({ _id: existingProfile._id });
+        } else {
+          console.log('❌ User already has a professional profile:', userId);
+          return res.status(409).json({
+            success: false,
+            message: 'You have already registered as a professional',
+            verificationStatus: existingProfile.verificationStatus
+          });
+        }
       }
     }
 
     // Check if email already exists
     const existingEmail = await ProfessionalModel.findOne({ email });
     if (existingEmail) {
-      console.log('❌ Email already exists:', email);
-      return res.status(409).json({
-        success: false,
-        message: 'Email already registered'
-      });
+      if (existingEmail.verificationStatus === 'rejected') {
+        console.log('♻️  Removing previous rejected profile with email:', email);
+        await ProfessionalModel.deleteOne({ _id: existingEmail._id });
+      } else {
+        console.log('❌ Email already exists:', email);
+        return res.status(409).json({
+          success: false,
+          message: 'Email already registered'
+        });
+      }
     }
 
     // Check if username already exists
     const existingUsername = await ProfessionalModel.findOne({ username });
     if (existingUsername) {
-      console.log('❌ Username already exists:', username);
-      return res.status(409).json({
-        success: false,
-        message: 'Username already taken'
-      });
+      if (existingUsername.verificationStatus === 'rejected') {
+        console.log('♻️  Removing previous rejected profile with username:', username);
+        await ProfessionalModel.deleteOne({ _id: existingUsername._id });
+      } else {
+        console.log('❌ Username already exists:', username);
+        return res.status(409).json({
+          success: false,
+          message: 'Username already taken'
+        });
+      }
     }
 
     // Handle profile image
     let profileImagePath = null;
     if (req.files && req.files.profileImage) {
-      profileImagePath = req.files.profileImage[0].path;
-      console.log('✅ Profile image uploaded:', profileImagePath);
+      const originalPath = req.files.profileImage[0].path;
+      const optimizedName = `opt-profile-${req.files.profileImage[0].filename.split('.')[0]}.webp`;
+      const optimizedPath = path.join(path.dirname(originalPath), optimizedName);
+      
+      try {
+        await sharp(originalPath)
+          .resize(400, 400, { fit: 'cover' })
+          .webp({ quality: 80 })
+          .toFile(optimizedPath);
+        
+        fs.unlinkSync(originalPath);
+        profileImagePath = optimizedPath.replace(/\\/g, '/');
+      } catch (sharpError) {
+        profileImagePath = originalPath.replace(/\\/g, '/');
+      }
+    }
+
+    // Handle cover image
+    let coverImagePath = null;
+    if (req.files && req.files.coverImage) {
+      const originalPath = req.files.coverImage[0].path;
+      const optimizedName = `opt-cover-${req.files.coverImage[0].filename.split('.')[0]}.webp`;
+      const optimizedPath = path.join(path.dirname(originalPath), optimizedName);
+      
+      try {
+        await sharp(originalPath)
+          .resize(1200, 400, { fit: 'cover' })
+          .webp({ quality: 80 })
+          .toFile(optimizedPath);
+        
+        fs.unlinkSync(originalPath);
+        coverImagePath = optimizedPath.replace(/\\/g, '/');
+        console.log('✅ Cover image optimized:', coverImagePath);
+      } catch (sharpError) {
+        console.error('⚠️ Cover optimization failed:', sharpError);
+        coverImagePath = originalPath.replace(/\\/g, '/');
+      }
     }
 
     // Handle verification documents
@@ -118,6 +169,7 @@ export const registerProfessional = async (req, res) => {
       bio: bio || '',
       userId: userId || null,
       profileImage: profileImagePath,
+      coverImage: coverImagePath,
       verificationDocuments: documentPaths,
       location: {
         type: "Point",
@@ -126,7 +178,8 @@ export const registerProfessional = async (req, res) => {
       formattedAddress: formattedAddress || serviceArea,
       jobType: jobType || 'full-time',
       availability: typeof availability === 'string' ? JSON.parse(availability) : availability,
-      tools: typeof tools === 'string' ? JSON.parse(tools) : (Array.isArray(tools) ? tools : []),
+      tools: typeof tools === 'string' ? [...new Set(JSON.parse(tools))] : (Array.isArray(tools) ? [...new Set(tools)] : []),
+      skills: typeof req.body.skills === 'string' ? [...new Set(JSON.parse(req.body.skills))] : (Array.isArray(req.body.skills) ? [...new Set(req.body.skills)] : []),
       verificationStatus: 'pending',
       isVerified: false,
       isActive: true,
@@ -299,10 +352,49 @@ export const updateProfessionalProfile = async (req, res) => {
     if (availability) {
       updateData.availability = typeof availability === 'string' ? JSON.parse(availability) : availability;
     }
+    if (req.body.tools) {
+      updateData.tools = typeof req.body.tools === 'string' ? [...new Set(JSON.parse(req.body.tools))] : (Array.isArray(req.body.tools) ? [...new Set(req.body.tools)] : []);
+    }
+    if (req.body.skills) {
+      updateData.skills = typeof req.body.skills === 'string' ? [...new Set(JSON.parse(req.body.skills))] : (Array.isArray(req.body.skills) ? [...new Set(req.body.skills)] : []);
+    }
 
     // Handle profile image update
     if (req.files && req.files.profileImage) {
-      updateData.profileImage = req.files.profileImage[0].path;
+      const originalPath = req.files.profileImage[0].path;
+      const optimizedName = `opt-profile-${req.files.profileImage[0].filename.split('.')[0]}.webp`;
+      const optimizedPath = path.join(path.dirname(originalPath), optimizedName);
+      
+      try {
+        await sharp(originalPath)
+          .resize(400, 400, { fit: 'cover' })
+          .webp({ quality: 80 })
+          .toFile(optimizedPath);
+        
+        fs.unlinkSync(originalPath);
+        updateData.profileImage = optimizedPath.replace(/\\/g, '/');
+      } catch (err) {
+        updateData.profileImage = originalPath.replace(/\\/g, '/');
+      }
+    }
+
+    // Handle cover image update
+    if (req.files && req.files.coverImage) {
+      const originalPath = req.files.coverImage[0].path;
+      const optimizedName = `opt-cover-${req.files.coverImage[0].filename.split('.')[0]}.webp`;
+      const optimizedPath = path.join(path.dirname(originalPath), optimizedName);
+      
+      try {
+        await sharp(originalPath)
+          .resize(1200, 400, { fit: 'cover' })
+          .webp({ quality: 80 })
+          .toFile(optimizedPath);
+        
+        fs.unlinkSync(originalPath);
+        updateData.coverImage = optimizedPath.replace(/\\/g, '/');
+      } catch (err) {
+        updateData.coverImage = originalPath.replace(/\\/g, '/');
+      }
     }
 
     const updatedProfessional = await ProfessionalModel.findByIdAndUpdate(
@@ -565,6 +657,28 @@ export const getServiceCategories = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch categories',
+      error: error.message
+    });
+  }
+};
+
+// Get all unique service areas
+export const getServiceAreas = async (req, res) => {
+  try {
+    const areas = await ProfessionalModel.distinct('serviceArea', { 
+      isVerified: true,
+      serviceArea: { $ne: null } 
+    });
+    
+    return res.status(200).json({
+      success: true,
+      data: areas.filter(area => area && area.trim() !== "")
+    });
+  } catch (error) {
+    console.error('Error fetching areas:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch areas',
       error: error.message
     });
   }

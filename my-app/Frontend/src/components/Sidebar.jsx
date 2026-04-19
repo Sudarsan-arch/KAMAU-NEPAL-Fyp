@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Home, Calendar, MessageSquare, TrendingUp, CreditCard,
-    Settings, HelpCircle, Briefcase, LogOut, SwitchCamera
+    Settings, HelpCircle, Briefcase, LogOut
 } from 'lucide-react';
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
@@ -75,7 +75,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
             )}
 
             <aside
-                className={`fixed lg:sticky top-[61px] h-[calc(100vh-61px)] bg-white border-r border-gray-200 w-64 z-50 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+                className={`fixed lg:sticky top-[64px] h-[calc(100vh-64px)] bg-white border-r border-gray-200 w-64 z-50 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
                     } lg:translate-x-0`}
             >
                 <nav className="p-4 space-y-1 flex flex-col h-full">
@@ -134,7 +134,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
                                 <Briefcase size={20} />
                                 <span className="text-sm">Professional Role</span>
                             </button>
-                        ) : professionalProfile ? (
+                        ) : professionalProfile && professionalProfile.verificationStatus === 'pending' ? (
                             <button
                                 onClick={() => {
                                     navigate(`/professional/${professionalProfile._id}`);
@@ -143,7 +143,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
                                 className="w-full flex items-center gap-3 px-4 py-3 text-teal-600 hover:bg-teal-50 rounded-xl transition font-semibold"
                             >
                                 <Briefcase size={20} />
-                                <span className="text-sm">My Professional Profile</span>
+                                <span className="text-sm">Application Pending</span>
                             </button>
                         ) : !checkingProfessional && (
                             <button
@@ -154,7 +154,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
                                 className="w-full flex items-center gap-3 px-4 py-3 text-teal-600 hover:bg-teal-50 rounded-xl transition font-semibold"
                             >
                                 <Briefcase size={20} />
-                                <span className="text-sm">Register as Professional</span>
+                                <span className="text-sm">{professionalProfile && professionalProfile.verificationStatus === 'rejected' ? 'Re-apply as Professional' : 'Register as Professional'}</span>
                             </button>
                         )}
                         <button

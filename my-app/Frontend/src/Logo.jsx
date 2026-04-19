@@ -6,7 +6,7 @@ const Logo = ({ className = "" }) => (
     <img
       src="/kamau.png"
       alt="KAMAU"
-      className="h-32 w-auto object-contain"
+      className="h-16 md:h-20 w-auto object-contain"
     />
   </Link>
 );

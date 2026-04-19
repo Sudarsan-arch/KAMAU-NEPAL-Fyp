@@ -67,8 +67,16 @@ const bookingSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Khalti", "eSewa", "Card", "None"],
+      enum: ["Cash", "Khalti", "eSewa", "None"],
       default: "None"
+    },
+    transactionId: {
+      type: String,
+      default: ""
+    },
+    paymentDetails: {
+      type: Object,
+      default: null
     }
   },
   { timestamps: true }

@@ -48,11 +48,11 @@ export const updateLocation = async (req, res) => {
             { new: true }
         );
 
-        if (!updatedUser && !updatedPro) {
+        const primaryDoc = updatedUser || updatedPro;
+
+        if (!primaryDoc) {
             return res.status(404).json({ message: "User or Professional not found" });
         }
-
-        const primaryDoc = updatedUser || updatedPro;
 
         res.json({
             message: "Location updated successfully",

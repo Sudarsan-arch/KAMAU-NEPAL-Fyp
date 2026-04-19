@@ -18,7 +18,9 @@ import {
   MessageSquare,
   Orbit,
   FileText,
-  Download
+  Download,
+  Trash2,
+  CheckCircle2
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -39,10 +41,11 @@ const AdminDashboard = () => {
     totalApplications: 0,
     totalPending: 0,
     totalApproved: 0,
-    totalRejected: 0
+    totalRejected: 0,
+    totalUsers: 0
   });
   const [professionals, setProfessionals] = useState([]);
-  const [error, setError] = useState(null);
+  const [users, setUsers] = useState([]);
 
   // Modal States
   const [selectedProfessional, setSelectedProfessional] = useState(null);
@@ -70,7 +73,6 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      setError(null);
 
       if (activeTab === 'overview') {
         const [statsRes, recentRes] = await Promise.all([
@@ -86,10 +88,12 @@ const AdminDashboard = () => {
       } else if (activeTab === 'professionals') {
         const response = await adminService.getAllProfessionalsForAdmin();
         if (response.success) setProfessionals(response.data);
+      } else if (activeTab === 'users') {
+        const response = await adminService.getAllUsers();
+        if (response.success) setUsers(response.data);
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      setError(err.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -276,7 +280,41 @@ const AdminDashboard = () => {
       confirmText: "Sign Out Now",
       onConfirm: () => {
         adminLogout();
-        navigate('/');
+        navigate('/login');
+      },
+      type: 'danger'
+    });
+  };
+
+  const handleDeleteUser = async (id) => {
+    openConfirm({
+      title: "Confirm User Deletion",
+      message: "WARNING: This will permanently delete this user account and their professional profile (if any). Access will be immediately revoked. Continue?",
+      confirmText: "Delete Account",
+      onConfirm: async () => {
+        try {
+          const res = await adminService.deleteUser(id);
+          if (res.success) fetchDashboardData();
+        } catch (err) {
+          alert(err.message || 'Failed to delete user');
+        }
+      },
+      type: 'danger'
+    });
+  };
+
+  const handleDeleteProfessional = async (id) => {
+    openConfirm({
+      title: "Revoke Professional Status",
+      message: "This will permanently delete the professional profile. The user will still be able to login as a regular client. Continue?",
+      confirmText: "Delete Profile",
+      onConfirm: async () => {
+        try {
+          const res = await adminService.deleteProfessional(id);
+          if (res.success) fetchDashboardData();
+        } catch (err) {
+          alert(err.message || 'Failed to delete professional');
+        }
       },
       type: 'danger'
     });
@@ -285,7 +323,8 @@ const AdminDashboard = () => {
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: Compass, badge: null },
     { id: 'requests', label: 'Verification', icon: UserCheck, badge: stats.totalPending || null },
-    { id: 'professionals', label: 'Service Professionals', icon: Users, badge: null },
+    { id: 'professionals', label: 'Professionals', icon: Shield, badge: null },
+    { id: 'users', label: 'Total Users', icon: Users, badge: null },
     { id: 'broadcast', label: 'Broadcast', icon: MessageSquare, badge: null },
   ];
 
@@ -406,12 +445,13 @@ const AdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                   {[
-                    { label: 'Total Registrations', value: stats.totalApplications, icon: Users, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-100', tab: 'professionals' },
-                    { label: 'Awaiting Verification', value: stats.totalPending, icon: Clock, color: 'from-teal-500 to-teal-600', shadow: 'shadow-teal-100', tab: 'requests' },
-                    { label: 'Verified Partners', value: stats.totalApproved, icon: CheckCircle, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-100', tab: 'professionals' },
-                    { label: 'Declined Profiles', value: stats.totalRejected, icon: X, color: 'from-rose-500 to-rose-600', shadow: 'shadow-rose-100', tab: 'requests' },
+                    { label: 'Platform Users', value: stats.totalUsers, icon: Users, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-100', tab: 'users' },
+                    { label: 'Applications', value: stats.totalApplications, icon: FileText, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-100', tab: 'professionals' },
+                    { label: 'Awaiting', value: stats.totalPending, icon: Clock, color: 'from-teal-500 to-teal-600', shadow: 'shadow-teal-100', tab: 'requests' },
+                    { label: 'Verified', value: stats.totalApproved, icon: CheckCircle, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-100', tab: 'professionals' },
+                    { label: 'Declined', value: stats.totalRejected, icon: X, color: 'from-rose-500 to-rose-600', shadow: 'shadow-rose-100', tab: 'requests' },
                   ].map((stat, i) => {
                     const Icon = stat.icon;
                     return (
@@ -482,8 +522,22 @@ const AdminDashboard = () => {
                                       )}
                                     </div>
                                     <div>
-                                      <p className="font-black text-slate-900 text-base">{p.firstName} {p.lastName}</p>
-                                      <p className="text-[10px] text-teal-600 font-black uppercase tracking-widest mt-0.5">Partner ID: #{p._id.slice(-6).toUpperCase()}</p>
+                                      <p className="font-black text-slate-900 text-base flex items-center gap-2">
+                                        {p.firstName} {p.lastName}
+                                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border flex items-center ${
+                                          p.liveStatus === 'Ongoing' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                          p.liveStatus === 'Offline' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                                          'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                        }`}>
+                                          {(p.liveStatus === 'Active' || !p.liveStatus) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>}
+                                          {p.liveStatus || 'Active'}
+                                        </span>
+                                      </p>
+                                      <p className="text-[10px] text-teal-600 font-black uppercase tracking-widest mt-0.5 flex items-center gap-2">
+                                        Partner ID: #{p._id.slice(-6).toUpperCase()}
+                                        <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                        {p.completedJobs || 0} {p.completedJobs === 1 ? 'Service' : 'Services'} Done
+                                      </p>
                                     </div>
                                   </div>
                                 </td>
@@ -588,8 +642,22 @@ const AdminDashboard = () => {
                                     )}
                                   </div>
                                   <div>
-                                    <div className="font-black text-base">{p.firstName} {p.lastName}</div>
-                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{p.email}</p>
+                                    <div className="font-black text-base flex items-center gap-2">
+                                      {p.firstName} {p.lastName}
+                                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border flex items-center ${
+                                        p.liveStatus === 'Ongoing' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                        p.liveStatus === 'Offline' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                                        'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                      }`}>
+                                        {(p.liveStatus === 'Active' || !p.liveStatus) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>}
+                                        {p.liveStatus || 'Active'}
+                                      </span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5 flex items-center gap-2">
+                                      {p.email}
+                                      <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                      {p.completedJobs || 0} {p.completedJobs === 1 ? 'Service' : 'Services'} Done
+                                    </p>
                                   </div>
                                 </div>
                               </td>
@@ -627,8 +695,90 @@ const AdminDashboard = () => {
                                       <button onClick={() => handleViewDetails(p)} className="p-4 bg-slate-50 text-slate-400 hover:text-teal-600 hover:bg-white hover:shadow-md rounded-2xl transition-all">
                                         <Eye size={20} />
                                       </button>
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteProfessional(p._id); }} 
+                                        className="p-4 bg-rose-50 text-rose-400 hover:text-rose-600 hover:bg-white hover:shadow-md rounded-2xl transition-all"
+                                        title="Delete Professional Profile"
+                                      >
+                                        <Trash2 size={20} />
+                                      </button>
                                     </div>
                                   )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {activeTab === 'users' && (
+            <div className="space-y-12 animate-in fade-in duration-500">
+              <section>
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                  <div>
+                    <h1 className="text-4xl font-black tracking-tight mb-2 text-slate-900">Platform Users</h1>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Total registered users across the platform</p>
+                  </div>
+                </div>
+
+                <div className="bg-white p-10 rounded-[48px] border border-slate-100 shadow-xl shadow-slate-200/40">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                          <th className="pb-6 pl-4">User Identity</th>
+                          <th className="pb-6">Email</th>
+                          <th className="pb-6">Status</th>
+                          <th className="pb-6 text-center">Registered Date</th>
+                          <th className="pb-6 text-right pr-4">Operations</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {users.length === 0 ? (
+                           <tr><td colSpan={4} className="py-24 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No user records found</td></tr>
+                        ) : (
+                          users.map((u) => (
+                            <tr 
+                              key={u._id} 
+                              className="hover:bg-teal-50/50 transition-all group"
+                            >
+                              <td className="py-7 pl-4">
+                                <div className="flex items-center gap-4 text-slate-900">
+                                  <div className="w-14 min-w-[3.5rem] h-14 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 shadow-inner">
+                                    <Shield size={24} />
+                                  </div>
+                                  <div>
+                                    <div className="font-black text-base">{u.name}</div>
+                                    <p className="text-[10px] text-teal-600 font-black uppercase tracking-widest mt-0.5">@{u.username || 'user'}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-7">
+                                <span className="text-sm font-medium text-slate-600">{u.email}</span>
+                              </td>
+                              <td className="py-7">
+                                {u.isVerified ? (
+                                  <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-emerald-100">Verified</span>
+                                ) : (
+                                  <span className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-orange-100">Pending OTP</span>
+                                )}
+                              </td>
+                              <td className="py-7 pr-4 text-right">
+                                <span className="text-xs font-bold text-slate-400">{new Date(u.createdAt).toLocaleDateString()}</span>
+                              </td>
+                              <td className="py-7 pr-4 text-right">
+                                <button 
+                                  onClick={() => handleDeleteUser(u._id)} 
+                                  className="p-4 bg-rose-50 text-rose-400 hover:text-rose-600 hover:bg-white hover:shadow-md rounded-2xl transition-all"
+                                  title="Delete User Account"
+                                >
+                                  <Trash2 size={20} />
+                                </button>
                               </td>
                             </tr>
                           ))
@@ -677,6 +827,14 @@ const AdminDashboard = () => {
                   <h3 className="text-2xl font-black text-slate-900">{selectedProfessional.firstName} {selectedProfessional.lastName}</h3>
                   <div className="flex items-center gap-2 mt-1">
                     <StatusBadge status={selectedProfessional.verificationStatus} />
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border flex items-center ${
+                      selectedProfessional.liveStatus === 'Ongoing' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                      selectedProfessional.liveStatus === 'Offline' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                      'bg-emerald-50 text-emerald-600 border-emerald-200'
+                    }`}>
+                      {(selectedProfessional.liveStatus === 'Active' || !selectedProfessional.liveStatus) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>}
+                      {selectedProfessional.liveStatus || 'Active'}
+                    </span>
                     <span className="text-[10px] font-black text-teal-600 uppercase tracking-widest">@{selectedProfessional.username}</span>
                   </div>
                 </div>
@@ -712,6 +870,13 @@ const AdminDashboard = () => {
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Hourly Wage</p>
                   <p className="font-bold text-slate-900">रू {selectedProfessional.hourlyWage}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Service Done</p>
+                  <p className="font-bold text-emerald-600 flex items-center gap-2">
+                    <CheckCircle2 size={16} />
+                    {selectedProfessional.completedJobs || 0} {selectedProfessional.completedJobs === 1 ? 'Service' : 'Services'} Completed
+                  </p>
                 </div>
               </div>
 

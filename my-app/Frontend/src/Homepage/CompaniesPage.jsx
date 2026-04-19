@@ -84,7 +84,7 @@ const CompaniesPage = () => {
     <div className="min-h-screen bg-slate-50">
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
-          <Link to="/"><Logo /></Link>
+          <Logo />
           <div className="hidden md:flex gap-8">
             <Link to="/companies" className="text-teal-600 font-bold">Companies</Link>
             <Link to="/services" className="text-slate-600 hover:text-teal-600 font-semibold">Services</Link>

@@ -13,6 +13,9 @@ import {
   searchProfessionals,
   exportData,
   broadcastNotification,
+  getAllUsers,
+  deleteUser,
+  deleteProfessional,
 } from './controllers/adminController.js';
 import { verifyAdminToken, checkAdminRole } from './adminAuthMiddleware.js';
 
@@ -40,6 +43,9 @@ router.get('/dashboard/recent', getRecentApplications);
 // Professionals Management
 // GET /api/admin/professionals?page=1&limit=20&status=pending&serviceCategory=plumbing
 router.get('/professionals', getAllProfessionalsForAdmin);
+
+// GET /api/admin/users?page=1&limit=20&search=ram
+router.get('/users', getAllUsers);
 
 // GET /api/admin/professionals/search?search=ram&status=pending&category=plumbing&area=thamel
 router.get('/professionals/search', searchProfessionals);
@@ -73,5 +79,13 @@ router.get('/export', exportData);
 // POST /api/admin/broadcast
 // Body: { recipient: 'all'|'users'|'professionals', title, message }
 router.post('/broadcast', broadcastNotification);
+
+// Delete User
+// DELETE /api/admin/users/:id
+router.delete('/users/:id', deleteUser);
+
+// Delete Professional
+// DELETE /api/admin/professionals/:id
+router.delete('/professionals/:id', deleteProfessional);
 
 export default router;

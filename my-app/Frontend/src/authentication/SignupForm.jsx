@@ -15,7 +15,50 @@ const SignupForm = () => {
     agreeToTerms: false,
   });
 
+  const [emailError, setEmailError] = useState('');
+
+  const [passwordStrength, setPasswordStrength] = useState({
+    length: false,
+    upper: false,
+    lower: false,
+    number: false,
+    special: false
+  });
+  const [strengthScore, setStrengthScore] = useState(0);
+
   const navigate = useNavigate();
+
+  const checkPasswordStrength = (pass) => {
+    const length = pass.length >= 8;
+    const upper = /[A-Z]/.test(pass);
+    const lower = /[a-z]/.test(pass);
+    const number = /[0-9]/.test(pass);
+    const special = /[!@#$%^&*()_+{}\[\]:;<>,.?~\\/\-]/.test(pass);
+
+    setPasswordStrength({ length, upper, lower, number, special });
+
+    let score = 0;
+    if (length) score++;
+    if (upper) score++;
+    if (lower) score++;
+    if (number) score++;
+    if (special) score++;
+    setStrengthScore(score);
+  };
+
+  const validateEmail = (email) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+    if (!email) {
+      setEmailError('');
+      return false;
+    } else if (!regex.test(email)) {
+      setEmailError('Please enter a valid email address');
+      return false;
+    } else {
+      setEmailError('');
+      return true;
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -23,13 +66,29 @@ const SignupForm = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+    if (name === 'password') {
+      checkPasswordStrength(value);
+    }
+    if (name === 'email') {
+      validateEmail(value);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!validateEmail(formData.email)) {
+      alert('Please provide a valid email address.');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       alert('Passwords do not match!');
+      return;
+    }
+
+    if (strengthScore < 5) {
+      alert('Please use a stronger password meeting all requirements.');
       return;
     }
 
@@ -42,6 +101,8 @@ const SignupForm = () => {
       // Prepare payload
       const payload = {
         name: `${formData.firstName} ${formData.lastName}`,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
         address: formData.address,
@@ -176,9 +237,14 @@ const SignupForm = () => {
                     onChange={handleChange}
                     placeholder="Enter your email"
                     required
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+                    className={`w-full pl-10 pr-4 py-2.5 border rounded-lg outline-none transition ${
+                      emailError ? 'border-red-500 focus:ring-2 focus:ring-red-500' : 'border-gray-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500'
+                    }`}
                   />
                 </div>
+                {emailError && (
+                  <p className="mt-1 text-sm text-red-500">{emailError}</p>
+                )}
               </div>
 
               {/* Passwords */}
@@ -197,6 +263,53 @@ const SignupForm = () => {
                       className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
                     />
                   </div>
+                  {/* Password Strength Meter */}
+                  {formData.password && (
+                    <div className="mt-3 text-xs">
+                      <div className="flex gap-1 h-1.5 mt-1 rounded-full overflow-hidden bg-gray-200">
+                        {[1, 2, 3, 4, 5].map((val) => (
+                          <div
+                            key={val}
+                            className={`flex-1 ${
+                              strengthScore >= val
+                                ? strengthScore < 3
+                                  ? 'bg-red-500'
+                                  : strengthScore < 5
+                                  ? 'bg-yellow-500'
+                                  : 'bg-green-500'
+                                : 'bg-transparent'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <p className={`mt-1 font-medium ${
+                        strengthScore < 3 ? 'text-red-500' : strengthScore < 5 ? 'text-yellow-600' : 'text-green-600'
+                      }`}>
+                        {strengthScore < 3 && 'Weak password'}
+                        {strengthScore >= 3 && strengthScore < 5 && 'Fair password'}
+                        {strengthScore === 5 && 'Strong password'}
+                      </p>
+                      {strengthScore < 5 && (
+                        <ul className="mt-2 space-y-1 text-gray-500 font-medium">
+                          <li className={`flex items-center gap-1 ${passwordStrength.length ? "text-green-600" : ""}`}>
+                            {passwordStrength.length ? "✓" : "○"} At least 8 characters
+                          </li>
+                          <li className={`flex items-center gap-1 ${passwordStrength.upper ? "text-green-600" : ""}`}>
+                            {passwordStrength.upper ? "✓" : "○"} Uppercase letter
+                          </li>
+                          <li className={`flex items-center gap-1 ${passwordStrength.lower ? "text-green-600" : ""}`}>
+                            {passwordStrength.lower ? "✓" : "○"} Lowercase letter
+                          </li>
+                          <li className={`flex items-center gap-1 ${passwordStrength.number ? "text-green-600" : ""}`}>
+                            {passwordStrength.number ? "✓" : "○"} Number
+                          </li>
+                          <li className={`flex items-center gap-1 ${passwordStrength.special ? "text-green-600" : ""}`}>
+                            {passwordStrength.special ? "✓" : "○"} Special character
+                          </li>
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password</label>

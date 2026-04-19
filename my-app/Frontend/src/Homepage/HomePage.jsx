@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Menu, X, Search, Star, MapPin, CheckCircle2,
   MoreHorizontal, Twitter, Linkedin, Github,
-  Heart, Zap, ShieldCheck, ArrowRight, Briefcase, UserCircle, SwitchCamera, Clock
+  Heart, Zap, ShieldCheck, ArrowRight, Briefcase, UserCircle, Clock
 } from 'lucide-react';
 import Logo from '../Logo';
 import axios from 'axios';
 import Button from '../components/Button';
+import OptimizedImage from '../components/OptimizedImage';
 
 
 
@@ -36,7 +37,6 @@ const HomePage = () => {
   };
 
   const [professionalStatus, setProfessionalStatus] = useState(null);
-  const [activeRole, setActiveRole] = useState(localStorage.getItem('activeRole') || 'user');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -63,15 +63,6 @@ const HomePage = () => {
     }
   }, []);
 
-  const handleRoleSwitch = () => {
-    if (activeRole === 'user') {
-      localStorage.setItem('activeRole', 'professional');
-      navigate('/professional-dashboard');
-    } else {
-      localStorage.setItem('activeRole', 'user');
-      navigate('/dashboard');
-    }
-  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -108,7 +99,9 @@ const HomePage = () => {
             hourlyRate: ['freelancer', 'graphic_designer', 'logo_designer', 'developer'].includes(prof.serviceCategory) 
               ? `रू ${prof.hourlyWage} (Fixed)` 
               : `रू ${prof.hourlyWage}/hr`,
-            profileImage: prof.profileImage
+            profileImage: prof.profileImage,
+            serviceCategory: prof.serviceCategory, // Keep raw for OptimizedImage
+            completedJobs: prof.completedJobs || 0
           }));
 
           // Filter out professionals with active bookings
@@ -203,12 +196,6 @@ const HomePage = () => {
   }, []);
 
 
-  const providers = [
-    { name: "Dileep Sagar", title: "Talent Searcher", location: "Kathmandu, Nepal", rating: 4.8, reviews: 127, verified: true, avatar: "🧑‍💼", hourlyRate: "रू 500/hr" },
-    { name: "Aarav Patel", title: "Electrical Engineer", location: "Lalitpur, Nepal", rating: 4.9, reviews: 98, verified: true, avatar: "👨‍💼", hourlyRate: "रू 1200/hr" },
-    { name: "Sita Sharma", title: "Home Stylist", location: "Pokhara, Nepal", rating: 4.7, reviews: 156, verified: true, avatar: "👩‍🎨", hourlyRate: "रू 800/hr" },
-    { name: "Ram Carpenter", title: "Master Carpenter", location: "Butwal, Nepal", rating: 4.6, reviews: 203, verified: true, avatar: "🪜", hourlyRate: "रू 450/hr" },
-  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -401,9 +388,9 @@ const HomePage = () => {
                   <div key={i} className="animate-pulse bg-slate-100 h-32 rounded-3xl" />
                 ))
               ) : categories.length > 0 ? (
-                categories.map((category, idx) => (
+                categories.map((category) => (
                   <button 
-                    key={idx} 
+                    key={category.id} 
                     onClick={() => navigate('/explore-jobs', { state: { searchQuery: category.id } })}
                     className="group flex flex-col items-center p-8 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-white hover:border-teal-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden"
                   >
@@ -447,25 +434,17 @@ const HomePage = () => {
                   <p className="text-slate-500">Loading professionals...</p>
                 </div>
               ) : professionals.length > 0 ? (
-                professionals.map((p, idx) => (
-                  <div key={idx} className="group bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 hover:shadow-2xl transition-all duration-300 flex flex-col relative overflow-hidden h-full">
+                professionals.map((p) => (
+                  <div key={p._id} className="group bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 hover:shadow-2xl transition-all duration-300 flex flex-col relative overflow-hidden h-full">
                     <div className="absolute top-0 left-0 w-full h-2 bg-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="flex justify-between items-start mb-6">
-                      <div className="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center text-4xl shadow-inner overflow-hidden">
-                        {p.profileImage ? (
-                          <img
-                            src={
-                              p.profileImage.startsWith('http') || p.profileImage.startsWith('data:')
-                                ? p.profileImage
-                                : `/${p.profileImage.replace(/\\/g, '/')}`
-                            }
-                            alt={p.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                        ) : null}
+                      <div className="w-16 h-16 rounded-2xl bg-teal-50 shadow-inner overflow-hidden relative">
+                        <OptimizedImage
+                          src={p.profileImage}
+                          alt={p.name}
+                          className="w-full h-full"
+                          fallbackIcon={UserCircle}
+                        />
                       </div>
                       {p.verified && <div className="bg-teal-50 text-teal-600 p-1.5 rounded-xl"><CheckCircle2 size={18} /></div>}
                     </div>
@@ -482,6 +461,9 @@ const HomePage = () => {
                         <span className="text-sm text-slate-400">({p.reviews})</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm font-medium text-slate-500"><MapPin size={16} className="text-teal-500" /> {p.location}</div>
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-black text-emerald-600 w-fit">
+                        <CheckCircle2 size={14} className="text-emerald-500" /> {p.completedJobs} {p.completedJobs === 1 ? 'Service' : 'Services'} Done
+                      </div>
                       <div className="text-lg font-black text-slate-900">{p.hourlyRate}</div>
                     </div>
                     <Button

@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Star, MapPin, CheckCircle2, ShieldCheck,
+  Star, MapPin, ShieldCheck,
   Calendar, MessageSquare, ArrowLeft, Share2, Award,
   Clock, Briefcase, GraduationCap, UserCircle, X, Send, Check, ThumbsUp, Lock
 } from 'lucide-react';
 import axios from 'axios';
 import { submitReview, getProfessionalReviews } from './services/reviewService';
+import OptimizedImage from './components/OptimizedImage';
 
 // Button Component
 const Button = ({
@@ -133,6 +134,11 @@ const ProfessionalProfile = () => {
     }
   }, [id]);
 
+  useEffect(() => {
+    // Reset selected time when date changes
+    setRequestTime('');
+  }, [requestDate]);
+
   const formatServiceArea = (area) => {
     if (!area) return 'Not specified';
     return area
@@ -143,7 +149,72 @@ const ProfessionalProfile = () => {
 
   const formatServiceCategory = (category) => {
     if (!category) return 'Service';
-    return category.charAt(0).toUpperCase() + category.slice(1);
+    // Handle formats like "GRAPHIC_DESIGNER" or "graphic_designer"
+    return category
+      .split(/_|-|\s+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const getDayName = (dateString) => {
+    if (!dateString) return null;
+    return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(dateString));
+  };
+
+  const timeToMinutes = (timeStr) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  const STANDARD_TIME_SLOTS = [
+    { label: '8AM - 9AM', start: '08:00', end: '09:00' },
+    { label: '9AM - 10AM', start: '09:00', end: '10:00' },
+    { label: '10AM - 11AM', start: '10:00', end: '11:00' },
+    { label: '11AM - 12PM', start: '11:00', end: '12:00' },
+    { label: '12PM - 1PM', start: '12:00', end: '13:00' },
+    { label: '1PM - 2PM', start: '13:00', end: '14:00' },
+    { label: '2PM - 3PM', start: '14:00', end: '15:00' },
+    { label: '3PM - 4PM', start: '15:00', end: '16:00' },
+    { label: '4PM - 5PM', start: '16:00', end: '17:00' },
+    { label: '5PM - 6PM', start: '17:00', end: '18:00' },
+    { label: '6PM - 7PM', start: '18:00', end: '19:00' },
+    { label: '7PM - 8PM', start: '19:00', end: '20:00' },
+  ];
+
+  const getAvailableSlots = (dateString, availability) => {
+    if (!dateString || !availability || availability.length === 0) return [];
+    
+    const dayName = getDayName(dateString);
+    const dayAvailability = availability.find(a => a.day === dayName);
+    
+    if (!dayAvailability) return [];
+
+    const profStart = timeToMinutes(dayAvailability.startTime);
+    const profEnd = timeToMinutes(dayAvailability.endTime);
+
+    return STANDARD_TIME_SLOTS.filter(slot => {
+      const slotStart = timeToMinutes(slot.start);
+      const slotEnd = timeToMinutes(slot.end);
+      return slotStart >= profStart && slotEnd <= profEnd;
+    });
+  };
+
+  const formatAvailabilitySummary = (availability) => {
+    if (!availability || availability.length === 0) return 'Not set';
+    
+    // Group similar times
+    const summary = availability.map(a => {
+      const s = a.startTime.split(':');
+      const e = a.endTime.split(':');
+      const startH = parseInt(s[0]);
+      const endH = parseInt(e[0]);
+      const startF = startH >= 12 ? (startH === 12 ? 12 : startH - 12) + 'PM' : (startH === 0 ? 12 : startH) + 'AM';
+      const endF = endH >= 12 ? (endH === 12 ? 12 : endH - 12) + 'PM' : (endH === 0 ? 12 : endH) + 'AM';
+      return `${a.day.substring(0, 3)}: ${startF} - ${endF}`;
+    });
+
+    if (summary.length <= 2) return summary.join(', ');
+    return `${summary[0]}, ${summary[1]} ...`;
   };
 
   const handleHire = async () => {
@@ -293,9 +364,9 @@ const ProfessionalProfile = () => {
   };
 
   const renderStars = (rating, interactive = false, size = 20) => {
-    return [1,2,3,4,5].map(star => (
+    return [1,2,3,4,5].map((star, index) => (
       <button
-        key={star}
+        key={`rating-star-${index}`}
         type="button"
         disabled={!interactive}
         onClick={() => interactive && setReviewRating(star)}
@@ -361,32 +432,26 @@ const ProfessionalProfile = () => {
       </style>
 
       {/* Header / Cover */}
-      <div className="h-48 md:h-64 bg-gradient-to-r from-teal-600 to-teal-800 relative">
-        <div className="absolute inset-0 bg-black/10" />
+      <div 
+        className="h-48 md:h-64 relative bg-slate-200 z-10"
+        style={{
+          background: profile?.coverImage 
+            ? `url(${profile.coverImage.startsWith('http') ? profile.coverImage : `/${profile.coverImage.replace(/\\/g, '/')}`}) center/cover no-repeat`
+            : 'linear-gradient(to right, #0d9488, #115e59)'
+        }}
+      >
+        <div className="absolute inset-0 bg-black/20" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-end">
           <div className="translate-y-1/2 flex flex-col md:flex-row items-center md:items-end gap-6 w-full pb-0 md:pb-6">
             <div className="relative group transition-all duration-300">
-              <div className="w-32 h-32 md:w-48 md:h-48 rounded-full border-[8px] border-white overflow-hidden bg-slate-100 flex items-center justify-center transition-all duration-300 cursor-pointer animate-blink-orange">
-                {profile?.profileImage ? (
-                  <>
-                    <img
-                      src={
-                        profile.profileImage.startsWith('http') || profile.profileImage.startsWith('data:')
-                          ? profile.profileImage
-                          : `/${profile.profileImage.replace(/\\/g, '/')}`
-                      }
-                      alt={profile?.firstName || 'Professional'}
-                      className={`w-full h-full object-cover relative z-10 group-hover:brightness-110 transition-all duration-300 ${imageLoaded ? 'block' : 'hidden'}`}
-                      onLoad={() => setImageLoaded(true)}
-                      onError={() => setImageLoaded(false)}
-                    />
-                    {!imageLoaded && (
-                      <UserCircle size={80} className="text-slate-300 relative z-10" />
-                    )}
-                  </>
-                ) : (
-                  <UserCircle size={80} className="text-slate-300 relative z-10 group-hover:text-teal-400 transition-all duration-300" />
-                )}
+              <div className="w-32 h-32 md:w-48 md:h-48 rounded-full border-[8px] border-white overflow-hidden bg-slate-100 flex items-center justify-center transition-all duration-300 cursor-pointer animate-blink-orange relative">
+                <OptimizedImage
+                  key={profile?._id || 'loading'}
+                  src={profile?.profileImage}
+                  alt={profile?.firstName || 'Professional'}
+                  className="w-full h-full relative z-10"
+                  fallbackIcon={UserCircle}
+                />
               </div>
               {profile?.isVerified && (
                 <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2 bg-teal-600 text-white p-1.5 md:p-2.5 rounded-full shadow-2xl z-30 border-4 border-white flex items-center justify-center transform hover:scale-110 transition-transform duration-200">
@@ -469,8 +534,8 @@ const ProfessionalProfile = () => {
               </h2>
               <div className="space-y-6">
                 <div className="flex flex-wrap gap-4">
-                  {(profile?.skills && profile.skills.length > 0 ? profile.skills : ["Professional Service", "Quality Work", "Reliable", "Verified"]).map((skill) => (
-                    <span key={skill} className="px-5 py-3 rounded-2xl bg-slate-50 border border-slate-100 font-bold text-slate-700 hover:border-teal-200 hover:text-teal-600 transition-colors cursor-default">
+                  {(profile?.skills && profile.skills.length > 0 ? [...new Set(profile.skills)] : ["Professional Service", "Quality Work", "Reliable", "Verified"]).map((skill, index) => (
+                    <span key={`skill-${skill}-${index}`} className="px-5 py-3 rounded-2xl bg-slate-50 border border-slate-100 font-bold text-slate-700 hover:border-teal-200 hover:text-teal-600 transition-colors cursor-default">
                       {skill}
                     </span>
                   ))}
@@ -480,8 +545,8 @@ const ProfessionalProfile = () => {
                   <div className="pt-6 border-t border-slate-50">
                     <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Tools & Technologies</p>
                     <div className="flex flex-wrap gap-3">
-                      {profile.tools.map((tool) => (
-                        <span key={tool} className="px-4 py-2 rounded-xl bg-teal-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-100 italic transition-transform hover:scale-105">
+                      {[...new Set(profile.tools)].map((tool, index) => (
+                        <span key={`tool-${tool}-${index}`} className="px-4 py-2 rounded-xl bg-teal-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-teal-100 italic transition-transform hover:scale-105">
                           {tool}
                         </span>
                       ))}
@@ -585,8 +650,8 @@ const ProfessionalProfile = () => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {reviews.map((review) => (
-                    <div key={review._id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                  {reviews.map((review, index) => (
+                    <div key={review._id || `review-${index}`} className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-black text-sm">
@@ -646,7 +711,7 @@ const ProfessionalProfile = () => {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Availability</p>
-                      <p className="font-black text-slate-900">Mon - Sat, 9AM - 6PM</p>
+                      <p className="font-black text-slate-900">{formatAvailabilitySummary(profile?.availability)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
@@ -703,7 +768,7 @@ const ProfessionalProfile = () => {
                 <div className="flex justify-between items-center mb-5">
                   <h3 className="text-lg font-black text-slate-900">Top Review</h3>
                   <div className="flex gap-0.5">
-                    {[...Array(5)].map((_, i) => <Star key={i} size={12} className={i < Math.floor(profile?.rating || 0) ? "fill-orange-400 text-orange-400" : "text-slate-200"} />)}
+                    {[...Array(5)].map((_, i) => <Star key={`star-${i}`} size={12} className={i < Math.floor(profile?.rating || 0) ? "fill-orange-400 text-orange-400" : "text-slate-200"} />)}
                   </div>
                 </div>
                 {reviews.length > 0 ? (
@@ -716,7 +781,7 @@ const ProfessionalProfile = () => {
                       <div>
                         <span className="text-sm font-bold text-slate-900">{reviews[0].userName}</span>
                         <div className="flex gap-0.5 mt-0.5">
-                          {[...Array(5)].map((_, i) => <Star key={i} size={10} className={i < reviews[0].rating ? "fill-orange-400 text-orange-400" : "text-slate-200"} />)}
+                          {[...Array(5)].map((_, i) => <Star key={`rev-star-${i}`} size={10} className={i < reviews[0].rating ? "fill-orange-400 text-orange-400" : "text-slate-200"} />)}
                         </div>
                       </div>
                     </div>
@@ -818,17 +883,50 @@ const ProfessionalProfile = () => {
                             onChange={(e) => setRequestLocation(e.target.value)}
                           />
                         </div>
-                        <div>
-                          <label className="block text-sm font-black text-slate-900 uppercase tracking-widest mb-3">
-                            Preferred Time
+                        <div className="sm:col-span-2">
+                          <label className="block text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Clock size={16} className="text-teal-600" /> Preferred Time Slot
                           </label>
-                          <input
-                            required
-                            type="time"
-                            className="w-full p-5 rounded-3xl bg-slate-50 border border-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all text-slate-800 font-medium"
-                            value={requestTime}
-                            onChange={(e) => setRequestTime(e.target.value)}
-                          />
+                          
+                          {!requestDate ? (
+                            <div className="p-8 text-center bg-slate-50 rounded-[32px] border border-dashed border-slate-200">
+                              <p className="text-slate-400 text-sm font-bold">Please select a date first</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {getAvailableSlots(requestDate, profile?.availability).length > 0 ? (
+                                getAvailableSlots(requestDate, profile?.availability).map((slot) => (
+                                  <button
+                                    key={slot.label}
+                                    type="button"
+                                    onClick={() => setRequestTime(slot.label)}
+                                    className={`flex items-center justify-between px-4 py-3.5 rounded-2xl border-2 transition-all duration-200 group ${
+                                      requestTime === slot.label
+                                        ? 'border-orange-500 bg-orange-50/50 shadow-lg shadow-orange-100'
+                                        : 'border-slate-100 bg-white hover:border-orange-200 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <span className={`text-[11px] font-black uppercase tracking-tight transition-colors ${
+                                      requestTime === slot.label ? 'text-orange-600' : 'text-slate-600 group-hover:text-orange-500'
+                                    }`}>
+                                      {slot.label}
+                                    </span>
+                                    {requestTime === slot.label && (
+                                      <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center animate-in zoom-in duration-300">
+                                        <Check size={10} className="text-white" strokeWidth={4} />
+                                      </div>
+                                    )}
+                                  </button>
+                                ))
+                              ) : (
+                                <div className="col-span-full p-8 text-center bg-red-50 rounded-[32px] border border-red-100">
+                                  <p className="text-red-500 text-sm font-bold uppercase tracking-widest">
+                                    Professional is closed on {getDayName(requestDate)}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -857,9 +955,7 @@ const ProfessionalProfile = () => {
                             </>
                           )}
                         </Button>
-                        <p className="text-center text-xs text-slate-400 mt-4 font-bold uppercase tracking-wider">
-                          No payment required until job is completed
-                        </p>
+                        
                       </div>
                     </form>
                   </div>

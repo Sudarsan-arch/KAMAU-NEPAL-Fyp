@@ -62,6 +62,10 @@ const professionalSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  coverImage: {
+    type: String,
+    default: null
+  },
   verificationDocuments: [{
     filename: String,
     path: String,
@@ -103,6 +107,11 @@ const professionalSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  liveStatus: {
+    type: String,
+    enum: ['Free', 'Ongoing', 'Offline'],
+    default: 'Free'
   },
   isVerified: {
     type: Boolean,

@@ -274,8 +274,17 @@ export const getBookingStats = async (req, res) => {
       });
     }
 
+    const objectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : null;
+
+    if (!objectId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid User ID"
+      });
+    }
+
     const stats = await Booking.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $match: { userId: objectId } },
       {
         $group: {
           _id: "$status",
@@ -284,7 +293,7 @@ export const getBookingStats = async (req, res) => {
       }
     ]);
 
-    const totalBookings = await Booking.countDocuments({ userId });
+    const totalBookings = await Booking.countDocuments({ userId: objectId });
 
     res.status(200).json({
       success: true,
@@ -347,6 +356,13 @@ export const getProfessionalStats = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Professional ID is required"
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(professionalId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Professional ID"
       });
     }
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import {
-    Search, MapPin, Briefcase, Clock, DollarSign,
+    Search, MapPin, Briefcase, DollarSign,
     Filter, X, BookmarkPlus, Share2, ChevronLeft,
     ChevronRight, Star, CheckCircle2
 } from 'lucide-react';
@@ -35,7 +35,6 @@ const Button = ({
 };
 
 const LOCATIONS = ['All Locations', 'Kathmandu', 'Lalitpur', 'Bhaktapur', 'Remote'];
-const JOB_TYPES = ['All Types', 'Full-time', 'Part-time', 'Contract'];
 const LEVELS = ['All Levels', 'Entry-level', 'Mid-level', 'Senior'];
 const JOBS_PER_PAGE = 5;
 
@@ -43,7 +42,6 @@ export default function ExploreJobs() {
     const navigate = useNavigate();
     const [professionals, setProfessionals] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
     const location = useLocation();
     const [searchQuery, setSearchQuery] = useState(location.state?.searchQuery || '');
 
@@ -56,7 +54,6 @@ export default function ExploreJobs() {
         return "All Locations";
     });
 
-    const [selectedType, setSelectedType] = useState('All Types');
     const [selectedLevel, setSelectedLevel] = useState('All Levels');
     const [showFilters, setShowFilters] = useState(false);
     const [savedJobs, setSavedJobs] = useState([]);
@@ -83,6 +80,7 @@ export default function ExploreJobs() {
                             : `रू ${p.hourlyWage}/hr`,
                         type: 'Full-time', // Defaulting for now
                         level: p.completedJobs > 10 ? 'Senior' : (p.completedJobs > 3 ? 'Mid-level' : 'Entry-level'),
+                        completedJobs: p.completedJobs || 0,
                         skills: [p.serviceCategory, 'Reliable'],
                         posted: 'Recent',
                         description: p.bio || `Expert professional in ${p.serviceCategory} services available for hire.`,
@@ -119,7 +117,6 @@ export default function ExploreJobs() {
                 }
             } catch (err) {
                 console.error('Error fetching professionals:', err);
-                setError('Failed to load professionals. Please try again later.');
             } finally {
                 setLoading(false);
             }
@@ -133,12 +130,11 @@ export default function ExploreJobs() {
             const matchesSearch = job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 job.title.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesLocation = selectedLocation === 'All Locations' || job.location.toLowerCase().includes(selectedLocation.toLowerCase());
-            const matchesType = selectedType === 'All Types' || job.type === selectedType;
             const matchesLevel = selectedLevel === 'All Levels' || job.level === selectedLevel;
 
-            return matchesSearch && matchesLocation && matchesType && matchesLevel;
+            return matchesSearch && matchesLocation && matchesLevel;
         });
-    }, [searchQuery, selectedLocation, selectedType, selectedLevel, professionals]);
+    }, [searchQuery, selectedLocation, selectedLevel, professionals]);
 
     const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
     const paginatedJobs = useMemo(() => {
@@ -307,6 +303,9 @@ export default function ExploreJobs() {
                                                 </div>
                                                 <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl text-xs font-black text-slate-600">
                                                     <Star size={14} className="text-orange-500 fill-orange-500" /> {job.rating} ({job.reviews})
+                                                </div>
+                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-black text-emerald-600">
+                                                    <CheckCircle2 size={14} className="text-emerald-500" /> {job.completedJobs} {job.completedJobs === 1 ? 'Service' : 'Services'} Done
                                                 </div>
                                             </div>
 

@@ -48,7 +48,6 @@ const ProfessionalMessages = () => {
     const [composeData, setComposeData] = useState({ to: '', content: '' });
 
     const currentUserId = localStorage.getItem('userId');
-    const professionalId = localStorage.getItem('professionalId');
 
     useEffect(() => {
         fetchConversations();

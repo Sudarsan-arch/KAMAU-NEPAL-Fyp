@@ -13,7 +13,8 @@ import {
   deleteProfessionalProfile,
   getProfessionalByUsername,
   getMyProfessionalProfile,
-  getServiceCategories
+  getServiceCategories,
+  getServiceAreas
 } from './controllers/professionalController.js';
 import { verifyToken } from './authMiddleware.js';
 
@@ -71,6 +72,7 @@ const upload = multer({
 // Expects: multipart/form-data with profileImage and document_0, document_1, etc.
 router.post('/register', verifyToken, upload.fields([
   { name: 'profileImage', maxCount: 1 },
+  { name: 'coverImage', maxCount: 1 },
   { name: 'documents', maxCount: 5 }
 ]), registerProfessional);
 
@@ -82,9 +84,12 @@ router.get('/me', verifyToken, getMyProfessionalProfile);
 // GET /api/professionals?page=1&limit=10&serviceCategory=plumbing&serviceArea=thamel&verificationStatus=verified
 router.get('/', getAllProfessionals);
 
-// Get all unique service categories
+// Get all unique service categories & areas
 // GET /api/professionals/categories
 router.get('/categories', getServiceCategories);
+
+// GET /api/professionals/areas
+router.get('/areas', getServiceAreas);
 
 // Search professionals by filters
 // GET /api/professionals/search?serviceCategory=plumbing&serviceArea=thamel
@@ -94,20 +99,7 @@ router.get('/search', searchProfessionals);
 // GET /api/professionals/user/:username
 router.get('/user/:username', getProfessionalByUsername);
 
-// Get professional profile by ID
-// GET /api/professionals/:id
-router.get('/:id', getProfessionalProfile);
-
-// Update professional profile
-// PUT /api/professionals/:id
-// Expects: multipart/form-data (optional profileImage)
-router.put('/:id', upload.single('profileImage'), updateProfessionalProfile);
-
-// Delete professional profile
-// DELETE /api/professionals/:id
-router.delete('/:id', deleteProfessionalProfile);
-
-// Admin routes
+// Admin routes (must be before /:id to avoid being matched as an ID)
 
 // Get pending applications for verification
 // GET /api/professionals/admin/pending?page=1&limit=10
@@ -117,5 +109,21 @@ router.get('/admin/pending', getPendingApplications);
 // PATCH /api/professionals/admin/verify/:id
 // Expects: { status: 'verified' or 'rejected', rejectionReason: 'optional reason' }
 router.patch('/admin/verify/:id', verifyProfessional);
+
+// Get professional profile by ID
+// GET /api/professionals/:id
+router.get('/:id', getProfessionalProfile);
+
+// Update professional profile
+// PUT /api/professionals/:id
+// Expects: multipart/form-data (optional profileImage, coverImage)
+router.put('/:id', upload.fields([
+  { name: 'profileImage', maxCount: 1 },
+  { name: 'coverImage', maxCount: 1 }
+]), updateProfessionalProfile);
+
+// Delete professional profile
+// DELETE /api/professionals/:id
+router.delete('/:id', deleteProfessionalProfile);
 
 export default router;

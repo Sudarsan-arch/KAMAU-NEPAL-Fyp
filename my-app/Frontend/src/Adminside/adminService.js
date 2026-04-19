@@ -242,6 +242,57 @@ export const broadcastNotification = async (payload) => {
   }
 };
 
+/**
+ * Get all registered users for admin view
+ * @param {Object} params - Query parameters (page, limit, search)
+ * @returns {Promise} List of users with pagination
+ */
+export const getAllUsers = async (params = {}) => {
+  try {
+    const response = await axiosInstance.get('/users', { params });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || {
+      success: false,
+      message: "Failed to fetch users"
+    };
+  }
+};
+
+/**
+ * Delete a user
+ * @param {String} id - User MongoDB ID
+ * @returns {Promise} Success message
+ */
+export const deleteUser = async (id) => {
+  try {
+    const response = await axiosInstance.delete(`/users/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || {
+      success: false,
+      message: "Failed to delete user"
+    };
+  }
+};
+
+/**
+ * Delete a professional profile
+ * @param {String} id - Professional MongoDB ID
+ * @returns {Promise} Success message
+ */
+export const deleteProfessional = async (id) => {
+  try {
+    const response = await axiosInstance.delete(`/professionals/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || {
+      success: false,
+      message: "Failed to delete professional"
+    };
+  }
+};
+
 const adminServiceData = {
   getDashboardStats,
   getAnalyticsData,
@@ -257,6 +308,9 @@ const adminServiceData = {
   getStatusDistribution,
   exportData,
   broadcastNotification,
+  getAllUsers,
+  deleteUser,
+  deleteProfessional,
 };
 
 export default adminServiceData;

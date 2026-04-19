@@ -24,11 +24,11 @@ router.get("/user/:userId", getUserBookings);
 // Get booking statistics
 router.get("/stats/:userId", getBookingStats);
 
+// Get professional statistics (must be before /professional/:professionalId to avoid conflict)
+router.get("/professional/:professionalId/stats", getProfessionalStats);
+
 // Get professional bookings
 router.get("/professional/:professionalId", getProfessionalBookings);
-
-// Get professional statistics
-router.get("/professional/:professionalId/stats", getProfessionalStats);
 
 // Check if user has confirmed/completed booking with professional
 router.get("/user/:userId/professional/:professionalId", checkUserBookingStatus);

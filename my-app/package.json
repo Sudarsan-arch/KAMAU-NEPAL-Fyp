@@ -1,11 +1,14 @@
 {
-  "dependencies": {
-    "react-router-dom": "^7.13.1",
-    "recharts": "^3.8.0"
+  "name": "kamau-nepal",
+  "version": "1.0.0",
+  "description": "Orchestrator for Kamau Nepal Frontend and Backend",
+  "scripts": {
+    "start": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd Backend && npm start",
+    "frontend": "cd Frontend && npm start",
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"bgBlue,bgGreen\" \"cd Backend && npm run dev\" \"cd Frontend && npm start\""
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.27",
-    "postcss": "^8.5.8",
-    "tailwindcss": "^4.2.1"
+    "concurrently": "^9.2.1"
   }
 }

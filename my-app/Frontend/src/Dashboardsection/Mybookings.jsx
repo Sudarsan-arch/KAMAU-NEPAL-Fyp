@@ -14,11 +14,11 @@ import {
     AlertCircle,
     Calendar,
     ChevronDown,
-    MessageSquare,
     Send,
     CreditCard,
 } from 'lucide-react';
 import Logo from '../Logo';
+import NotificationsMenu from '../components/NotificationsMenu';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { submitReview } from '../services/reviewService';
 
@@ -36,6 +36,11 @@ export default function MyBookings() {
         onConfirm: () => {}, 
         type: 'danger' 
     });
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    
+    const userName = localStorage.getItem('userName') || 'Professional User';
+    const userRole = localStorage.getItem('userRole') || '';
+    const userProfileImage = localStorage.getItem('userProfileImage');
 
     // Review Modal State
     const [showReviewModal, setShowReviewModal] = useState(false);
@@ -45,8 +50,8 @@ export default function MyBookings() {
     const [reviewComment, setReviewComment] = useState('');
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
     const [reviewSubmitted, setReviewSubmitted] = useState(false);
-    const [reviewedBookings, setReviewedBookings] = useState(() => {
-        try { return JSON.parse(localStorage.getItem('reviewedBookings') || '[]'); }
+    const [reviewedProfessionals, setReviewedProfessionals] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('reviewedProfessionals') || '[]'); }
         catch { return []; }
     });
 
@@ -55,12 +60,8 @@ export default function MyBookings() {
         setConfirmDialog({ ...config, isOpen: true });
     };
 
-    const userName = localStorage.getItem('userName') || 'Professional User';
-    const userProfileImage = localStorage.getItem('userProfileImage');
 
     const [bookings, setBookings] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
 
     useEffect(() => {
         fetchBookings();
@@ -68,7 +69,6 @@ export default function MyBookings() {
 
     const fetchBookings = async () => {
         try {
-            setLoading(true);
             const userId = localStorage.getItem('userId');
             if (!userId) {
                 navigate('/login');
@@ -84,9 +84,6 @@ export default function MyBookings() {
             }
         } catch (err) {
             console.error('Error fetching bookings:', err);
-            setError(err.message || 'Failed to load bookings');
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -260,10 +257,10 @@ export default function MyBookings() {
         try {
             await submitReview({ professionalId, userId, userName, rating: reviewRating, comment: reviewComment });
             setReviewSubmitted(true);
-            // Mark this booking as reviewed
-            const updated = [...reviewedBookings, reviewBooking._id];
-            setReviewedBookings(updated);
-            localStorage.setItem('reviewedBookings', JSON.stringify(updated));
+            // Mark this professional as reviewed
+            const updated = [...reviewedProfessionals, professionalId];
+            setReviewedProfessionals(updated);
+            localStorage.setItem('reviewedProfessionals', JSON.stringify(updated));
             setTimeout(() => {
                 setShowReviewModal(false);
                 setReviewBooking(null);
@@ -276,7 +273,11 @@ export default function MyBookings() {
         }
     };
 
-    const hasReviewed = (bookingId) => reviewedBookings.includes(bookingId);
+    const isProfessionalReviewed = (professionalId) => {
+        if (!professionalId) return false;
+        const id = typeof professionalId === 'object' ? professionalId._id : professionalId;
+        return reviewedProfessionals.includes(id);
+    };
 
     const handlePayment = (booking) => {
         navigate(`/payment/${booking._id}`);
@@ -286,8 +287,8 @@ export default function MyBookings() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
             {/* Top Navigation */}
-            <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm h-16 flex items-center shrink-0">
+                <div className="w-full px-6 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -295,6 +296,8 @@ export default function MyBookings() {
                         >
                             {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
+                        <Logo />
+                        <div className="h-6 w-[1px] bg-gray-200 mx-2"></div>
                         <div className="flex items-center gap-3">
                             <h1 className="text-xl font-bold text-gray-900">My Bookings</h1>
                             {selectedBooking && (
@@ -305,14 +308,42 @@ export default function MyBookings() {
                             )}
                         </div>
                     </div>
+
                     <div className="flex items-center gap-4">
-                        <button className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition">
-                            <Bell size={20} />
-                            <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border-2 border-white"></span>
-                        </button>
-                        <button onClick={handleLogoClick} className="hover:opacity-80 transition cursor-pointer">
-                            <Logo />
-                        </button>
+                        <div className="relative">
+                            <button 
+                                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                                className="relative p-2 hover:bg-gray-100 rounded-lg transition text-gray-600"
+                            >
+                                <Bell size={20} />
+                                <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border-2 border-white"></span>
+                            </button>
+                            <NotificationsMenu 
+                                isOpen={notificationsOpen} 
+                                onClose={() => setNotificationsOpen(false)} 
+                            />
+                        </div>
+
+                        <div className="h-8 w-[1px] bg-gray-200 hidden sm:block"></div>
+
+                        <div 
+                            className="flex items-center gap-3 cursor-pointer p-1 pr-3 hover:bg-gray-50 rounded-full transition group"
+                            onClick={() => navigate('/user-profile')}
+                        >
+                            <div className="h-9 w-9 rounded-full overflow-hidden shadow-sm group-hover:shadow-md transition">
+                                {userProfileImage ? (
+                                    <img src={userProfileImage} alt={userName} className="h-full w-full object-cover" />
+                                ) : (
+                                    <div className="h-full w-full bg-orange-500 flex items-center justify-center text-white font-bold">
+                                        {userName?.charAt(0) || 'U'}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="hidden sm:block text-left">
+                                <p className="text-xs font-bold text-gray-900 leading-none mb-0.5">{userName}</p>
+                                <p className="text-[10px] text-gray-500 font-medium capitalize">{userRole || 'User'}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </nav>
@@ -502,7 +533,7 @@ export default function MyBookings() {
                                                     Pay Now ({selectedBooking.totalCost})
                                                 </button>
                                             )}
-                                            {hasReviewed(selectedBooking._id) ? (
+                                            {isProfessionalReviewed(selectedBooking.professionalId) ? (
                                                 <div className="w-full flex items-center justify-center gap-2 py-3 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200">
                                                     <CheckCircle size={18} />
                                                     Review Submitted

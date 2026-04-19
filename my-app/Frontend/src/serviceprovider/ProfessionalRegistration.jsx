@@ -53,6 +53,8 @@ const ProfessionalRegistration = () => {
 
   const [profileImage, setProfileImage] = useState(null)
   const [profileImageFile, setProfileImageFile] = useState(null)
+  const [coverImage, setCoverImage] = useState(null)
+  const [coverImageFile, setCoverImageFile] = useState(null)
   const [documents, setDocuments] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -100,32 +102,52 @@ const ProfessionalRegistration = () => {
           const res = await axios.get(`/api/users/${userId}/profile`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          if (res.data.success && res.data.user) {
+          if (res.data && res.data.user) {
             const user = res.data.user;
-            const nameParts = (user.name || '').split(' ');
+            const firstName = user.firstName || (user.name || '').split(' ')[0] || '';
+            const lastName = user.lastName || (user.name || '').split(' ').slice(1).join(' ') || '';
+            const email = user.email || '';
+            const phone = user.phone || '';
+            const username = user.username || '';
+            const location = user.formattedAddress || (typeof user.location === 'string' ? user.location : "");
+
             setFormData(prev => ({
               ...prev,
-              firstName: nameParts[0] || '',
-              lastName: nameParts.slice(1).join(' ') || '',
-              email: user.email || '',
-              phone: user.phone || '',
-              username: user.username || '',
-              serviceArea: user.formattedAddress || user.location || ''
+              firstName,
+              lastName,
+              email,
+              phone,
+              username,
+              serviceArea: location
             }));
+
+            if (location) {
+              setLocationSearch(location);
+            }
           }
         } catch (err) {
-          console.error("Failed to pre-populate registration form:", err);
-          // Fallback to localStorage if API fails
+          console.error("Failed to pre-populate registration form from API:", err);
           const name = localStorage.getItem('userName') || '';
-          const nameParts = name.split(' ');
+          const firstName = localStorage.getItem('firstName') || (name.split(' ')[0] || '');
+          const lastName = localStorage.getItem('lastName') || (name.split(' ').slice(1).join(' ') || '');
+          const email = localStorage.getItem('userEmail') || '';
+          const phone = localStorage.getItem('userPhone') || '';
+          const username = localStorage.getItem('username') || '';
+          const location = localStorage.getItem('userLocation') || '';
+
           setFormData(prev => ({
             ...prev,
-            firstName: nameParts[0] || '',
-            lastName: nameParts.slice(1).join(' ') || '',
-            email: localStorage.getItem('userEmail') || '',
-            phone: localStorage.getItem('userPhone') || '',
-            serviceArea: localStorage.getItem('userLocation') || ''
+            firstName,
+            lastName,
+            email,
+            phone,
+            username,
+            serviceArea: location
           }));
+
+          if (location) {
+            setLocationSearch(location);
+          }
         }
       };
       fetchUserData();
@@ -287,6 +309,28 @@ const ProfessionalRegistration = () => {
     reader.readAsDataURL(file)
   }
 
+  const handleCoverChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 30 * 1024 * 1024) {
+      alert("Image size should be less than 30MB")
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert("Please upload an image file")
+      return
+    }
+
+    setCoverImageFile(file)
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setCoverImage(reader.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
   const handleDocChange = (e) => {
     const files = e.target.files
     if (!files) return
@@ -354,9 +398,12 @@ const ProfessionalRegistration = () => {
       }
     })
 
-    // Append the actual profile image file if it exists
+    // Append images
     if (profileImageFile) {
       submitData.append('profileImage', profileImageFile)
+    }
+    if (coverImageFile) {
+      submitData.append('coverImage', coverImageFile)
     }
 
     documents.forEach((doc, index) => {
@@ -517,6 +564,37 @@ const ProfessionalRegistration = () => {
               </p>
             </div>
 
+            {/* Cover Photo Upload Preview Card */}
+            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+              <div 
+                className="w-full h-32 sm:h-40 bg-slate-100 rounded-xl overflow-hidden relative group cursor-pointer border-2 border-dashed border-slate-200"
+                onClick={() => document.getElementById('coverInput').click()}
+              >
+                {coverImage ? (
+                  <img src={coverImage} alt="Cover Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                    <Upload size={24} />
+                    <span className="text-xs font-bold uppercase tracking-widest">Upload Cover Photo</span>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="text-white w-6 h-6" />
+                </div>
+              </div>
+              <input
+                id="coverInput"
+                type="file"
+                onChange={handleCoverChange}
+                className="hidden"
+                accept="image/*"
+              />
+              <div className="mt-3 text-center">
+                <h3 className="font-bold text-slate-900 text-sm">Cover Background</h3>
+                <p className="text-[10px] text-slate-500 mt-1">Wide photo (3:1 area) works best for profile backdrop</p>
+              </div>
+            </div>
+
             {/* Profile Picture Upload Preview Card */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[32px] border border-slate-100 shadow-sm flex flex-col items-center">
               <div className="relative group cursor-pointer" onClick={triggerImageUpload}>
@@ -595,7 +673,13 @@ const ProfessionalRegistration = () => {
           {/* Right Side: Form */}
           <div className="lg:col-span-7">
             <div className="bg-white p-4 sm:p-6 lg:p-8 xl:p-12 rounded-3xl sm:rounded-[40px] shadow-xl sm:shadow-2xl shadow-slate-200/50 border border-slate-100">
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-6 sm:mb-8">Professional Details</h2>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-2 sm:mb-2">Professional Details</h2>
+              {formData.firstName && (
+                <div className="flex items-center gap-2 mb-6 sm:mb-8 text-teal-600 bg-teal-50/50 p-3 rounded-xl border border-teal-100/50 animate-in fade-in zoom-in duration-700">
+                  <ShieldCheck size={16} />
+                  <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em]">Verified Identity Synced</span>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -609,7 +693,7 @@ const ProfessionalRegistration = () => {
                         type="text"
                         name="firstName"
                         placeholder="first Name"
-                        className={`w-full bg-slate-50 border ${errors.firstName ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
+                        className={`w-full bg-white border ${errors.firstName ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                         value={formData.firstName}
                         onChange={handleInputChange}
                       />
@@ -628,7 +712,7 @@ const ProfessionalRegistration = () => {
                         type="text"
                         name="lastName"
                         placeholder="Last Name"
-                        className={`w-full bg-slate-50 border ${errors.lastName ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
+                        className={`w-full bg-white border ${errors.lastName ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                         value={formData.lastName}
                         onChange={handleInputChange}
                       />
@@ -649,13 +733,16 @@ const ProfessionalRegistration = () => {
                       type="text"
                       name="username"
                       placeholder="ram_pro_2025"
-                      className={`w-full bg-slate-50 border ${errors.username ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-7 sm:pl-10 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
+                      className={`w-full bg-white border ${errors.username ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-7 sm:pl-10 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                       value={formData.username}
                       onChange={handleInputChange}
                     />
                   </div>
                   {errors.username && (
                     <p className="text-xs text-red-500 ml-1">{errors.username}</p>
+                  )}
+                  {formData.firstName && (
+                    <p className="text-[10px] text-teal-600 font-black uppercase tracking-widest ml-1 mt-2">✨ Profile data synced from your user account</p>
                   )}
                 </div>
 
@@ -670,7 +757,7 @@ const ProfessionalRegistration = () => {
                         type="email"
                         name="email"
                         placeholder="ram@example.com"
-                        className={`w-full bg-slate-50 border ${errors.email ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
+                        className={`w-full bg-white border ${errors.email ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                         value={formData.email}
                         onChange={handleInputChange}
                       />
@@ -689,7 +776,7 @@ const ProfessionalRegistration = () => {
                         type="tel"
                         name="phone"
                         placeholder="+977-**********"
-                        className={`w-full bg-slate-50 border ${errors.phone ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
+                        className={`w-full bg-white border ${errors.phone ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-3 sm:pr-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base`}
                         value={formData.phone}
                         onChange={handleInputChange}
                         maxLength={10}

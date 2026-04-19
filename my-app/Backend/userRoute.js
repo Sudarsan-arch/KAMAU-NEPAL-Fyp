@@ -13,8 +13,19 @@ import fs from "fs";
 import axios from "axios";
 import { updateLocation, getNearbyProfessionals } from "./controllers/locationController.js";
 import { verifyToken } from "./authMiddleware.js";
+import sharp from "sharp";
 
 const router = express.Router();
+
+// Password validation helper
+const validatePassword = (password) => {
+  const minLength = 8;
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+{}\[\]:;<>,.?~\\/\-]/.test(password);
+  return password.length >= minLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+};
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(path.resolve(), "uploads");
@@ -51,10 +62,14 @@ router.get("/", (req, res) => {
 ========================= */
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, password, address } = req.body;
+    const { name, firstName, lastName, email, password, address } = req.body;
 
     if (!name || !email || !password || !address) {
       return res.status(400).json({ message: "All fields are required" });
+    }
+
+    if (!validatePassword(password)) {
+      return res.status(400).json({ message: "Password does not meet the security requirements." });
     }
 
     const existingUser = await User.findOne({ email });
@@ -68,6 +83,8 @@ router.post("/signup", async (req, res) => {
 
     const user = await User.create({
       name,
+      firstName,
+      lastName,
       email,
       password: hashedPassword,
       address,
@@ -333,131 +350,6 @@ router.post("/google-login", async (req, res) => {
 });
 
 /* =========================
-   UPDATE PROFILE
-========================= */
-router.put("/:userId/profile", upload.single("profileImage"), async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { fullName, email, phone, location, username, profileImage } = req.body;
-
-    console.log("Profile update request for userId:", userId);
-    console.log("Request body fields:", { fullName, email, phone, location, username });
-    console.log("Profile image provided:", !!profileImage);
-    console.log("File uploaded:", !!req.file);
-
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (fullName) user.name = fullName;
-    if (email) user.email = email;
-    if (phone) user.phone = phone;
-    if (location) {
-      user.address = location;
-      user.formattedAddress = location;
-    }
-    if (username) user.username = username;
-
-    // Handle profile image
-    if (req.file) {
-      // If a file was uploaded via multer
-      console.log("Saving profile image from uploaded file:", req.file.path);
-      const imageData = fs.readFileSync(req.file.path);
-      user.profileImage = `data:${req.file.mimetype};base64,${imageData.toString("base64")}`;
-
-      // Delete temporary file
-      fs.unlinkSync(req.file.path);
-      console.log("Temporary file deleted");
-    } else if (profileImage && profileImage.startsWith("data:")) {
-      // If a base64 string was sent in the body
-      console.log("Saving profile image from base64 string");
-      user.profileImage = profileImage;
-    } else {
-      console.log("No new profile image provided");
-    }
-
-    await user.save();
-    console.log("User profile saved successfully");
-
-    // SYNC: Also update linked Professional profile if it exists
-    try {
-      const professionalUpdate = {};
-      if (fullName) {
-        const nameParts = fullName.split(" ");
-        professionalUpdate.firstName = nameParts[0] || "";
-        professionalUpdate.lastName = nameParts.slice(1).join(" ") || "";
-      }
-      if (email) professionalUpdate.email = email;
-      if (phone) professionalUpdate.phone = phone;
-      if (location) {
-        professionalUpdate.serviceArea = location; // Or however you map address to serviceArea
-        professionalUpdate.formattedAddress = location;
-      }
-      if (user.profileImage) professionalUpdate.profileImage = user.profileImage;
-      if (username) professionalUpdate.username = username;
-
-      const pro = await ProfessionalModel.findOneAndUpdate(
-        { userId: userId },
-        { $set: professionalUpdate },
-        { new: true }
-      );
-      if (pro) {
-        console.log("Synchronized Professional profile for userId:", userId);
-      }
-    } catch (syncErr) {
-      console.error("Failed to sync Professional profile:", syncErr);
-      // Non-blocking for the user
-    }
-
-    res.json({
-      message: "Profile updated successfully",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        location: user.location,
-        formattedAddress: user.formattedAddress,
-        hasProfileImage: !!user.profileImage,
-      }
-    });
-  } catch (err) {
-    console.error("Profile update error:", err);
-    res.status(500).json({ message: "Failed to update profile: " + err.message });
-  }
-});
-
-/* =========================
-   GET USER PROFILE
-========================= */
-router.get("/:userId/profile", async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    res.json({
-      message: "User profile retrieved",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        location: user.location,
-        username: user.username,
-        profileImage: user.profileImage,
-        formattedAddress: user.formattedAddress,
-        isVerified: user.isVerified,
-        createdAt: user.createdAt,
-      },
-    });
-  } catch (err) {
-    console.error("Get profile error:", err);
-    res.status(500).json({ message: "Failed to fetch profile" });
-  }
-});
-
-/* =========================
    FIND USER (FOR MESSAGING)
 ========================= */
 router.get("/find", verifyToken, async (req, res) => {
@@ -497,6 +389,162 @@ router.put("/update-location", verifyToken, updateLocation);
 router.get("/nearby-professionals", verifyToken, getNearbyProfessionals);
 
 /* =========================
+   UPDATE PROFILE
+========================= */
+router.put("/:userId/profile", upload.single("profileImage"), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { firstName, lastName, email, phone, location, username, profileImage } = req.body;
+
+    console.log("Profile update request for userId:", userId);
+    console.log("Request body fields:", { firstName, lastName, email, phone, location, username });
+    console.log("Profile image provided:", !!profileImage);
+    console.log("File uploaded:", !!req.file);
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    // Update legacy name field
+    if (firstName || lastName) {
+        user.name = `${firstName || user.firstName || ''} ${lastName || user.lastName || ''}`.trim();
+    }
+    if (email) user.email = email;
+    if (phone) user.phone = phone;
+    if (location) {
+      user.address = location;
+      user.formattedAddress = location;
+    }
+    if (username) user.username = username;
+
+    // Handle profile image optimization
+    if (req.file || (profileImage && profileImage.startsWith("data:"))) {
+      const filename = `opt-profile-${userId}-${Date.now()}.webp`;
+      const optimizedPath = path.join(uploadsDir, filename);
+      const relativePath = `uploads/${filename}`;
+
+      try {
+        if (req.file) {
+          // Process uploaded file
+          await sharp(req.file.path)
+            .resize(400, 400, { fit: 'cover' })
+            .webp({ quality: 80 })
+            .toFile(optimizedPath);
+          
+          fs.unlinkSync(req.file.path); // Delete original
+        } else {
+          // Process base64 string
+          const base64Data = profileImage.split(';base64,').pop();
+          const buffer = Buffer.from(base64Data, 'base64');
+          
+          await sharp(buffer)
+            .resize(400, 400, { fit: 'cover' })
+            .webp({ quality: 80 })
+            .toFile(optimizedPath);
+        }
+        
+        user.profileImage = relativePath;
+        console.log("✅ Profile image optimized and saved to disk:", relativePath);
+      } catch (sharpError) {
+        console.error("⚠️ Sharp optimization failed, falling back to original logic:", sharpError);
+        // Fallback for safety if sharp fails
+        if (req.file) {
+          const imageData = fs.readFileSync(req.file.path);
+          user.profileImage = `data:${req.file.mimetype};base64,${imageData.toString("base64")}`;
+          fs.unlinkSync(req.file.path);
+        } else {
+          user.profileImage = profileImage;
+        }
+      }
+    } else {
+      console.log("No new profile image provided or updated");
+    }
+
+    await user.save();
+    console.log("User profile saved successfully");
+
+    // SYNC: Also update linked Professional profile if it exists
+    try {
+      const professionalUpdate = {};
+      if (firstName) professionalUpdate.firstName = firstName;
+      if (lastName) professionalUpdate.lastName = lastName;
+      if (email) professionalUpdate.email = email;
+      if (phone) professionalUpdate.phone = phone;
+      if (location) {
+        professionalUpdate.serviceArea = location;
+        professionalUpdate.formattedAddress = location;
+      }
+      if (user.profileImage) professionalUpdate.profileImage = user.profileImage;
+      if (username) professionalUpdate.username = username;
+
+      const pro = await ProfessionalModel.findOneAndUpdate(
+        { userId: userId },
+        { $set: professionalUpdate },
+        { new: true }
+      );
+      if (pro) {
+        console.log("Synchronized Professional profile for userId:", userId);
+      }
+    } catch (syncErr) {
+      console.error("Failed to sync Professional profile:", syncErr);
+      // Non-blocking for the user
+    }
+
+    res.json({
+      message: "Profile updated successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        location: user.location,
+        formattedAddress: user.formattedAddress,
+        hasProfileImage: !!user.profileImage,
+      }
+    });
+  } catch (err) {
+    console.error("Profile update error:", err);
+    res.status(500).json({ message: "Failed to update profile: " + err.message });
+  }
+});
+
+/* =========================
+   GET USER PROFILE
+========================= */
+router.get("/:userId/profile", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({
+      message: "User profile retrieved",
+      user: {
+        id: user._id,
+        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        location: user.location,
+        username: user.username,
+        profileImage: user.profileImage,
+        formattedAddress: user.formattedAddress,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error("Get profile error:", err);
+    res.status(500).json({ message: "Failed to fetch profile" });
+  }
+});
+
+/* =========================
    CHANGE PASSWORD
 ========================= */
 router.put("/:userId/change-password", verifyToken, async (req, res) => {
@@ -515,9 +563,9 @@ router.put("/:userId/change-password", verifyToken, async (req, res) => {
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) return res.status(401).json({ message: "Invalid current password" });
 
-    // Validate new password (optional, e.g. length)
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "New password must be at least 6 characters long" });
+    // Validate new password
+    if (!validatePassword(newPassword)) {
+      return res.status(400).json({ message: "New password does not meet the security requirements." });
     }
 
     // Hash the new password

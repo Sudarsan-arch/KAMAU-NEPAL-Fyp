@@ -5,12 +5,26 @@ import jwt from "jsonwebtoken";
 // Helper to generate OTP
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
+// Password validation helper
+const validatePassword = (password) => {
+  const minLength = 8;
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+{}\[\]:;<>,.?~\\/-]/.test(password);
+  return password.length >= minLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+};
+
 // SIGN UP
 export const signupUser = async (req, res) => {
   const { name, email, phone, password } = req.body;
   try {
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "User already exists" });
+
+    if (!password || !validatePassword(password)) {
+      return res.status(400).json({ message: "Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character." });
+    }
 
     const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
     const otp = generateOtp();

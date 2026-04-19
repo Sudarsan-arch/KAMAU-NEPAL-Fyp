@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, LogOut, CheckCircle, Info, X } from 'lucide-react';
+import { LogOut, CheckCircle, Info, X } from 'lucide-react';
 
 const ConfirmDialog = ({ 
   isOpen, 

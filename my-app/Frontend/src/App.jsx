@@ -16,6 +16,7 @@ import ExploreJobs from './Homepage/ExploreJobs';
 import Mybookings from './Dashboardsection/Mybookings';
 import MessagePage from './Dashboardsection/message';
 import PaymentPage from './Dashboardsection/PaymentPage';
+import KhaltiVerify from './Dashboardsection/KhaltiVerify';
 import Admindashboard from './Adminside/Admindashboard';
 import AdminPrivateRoute from './Adminside/AdminPrivateRoute';
 import ProfessionalDashboard from './serviceprovider/ProfessionalDashboard';
@@ -101,6 +102,15 @@ const App = () => {
             element={
               <PrivateRoute>
                 <PaymentPage />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/payment/verify"
+            element={
+              <PrivateRoute>
+                <KhaltiVerify />
               </PrivateRoute>
             }
           />

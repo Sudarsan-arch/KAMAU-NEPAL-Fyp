@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import axios from "axios";
+import api from "../services/apiInstance";
 import { useGoogleLogin } from '@react-oauth/google';
 
 
@@ -25,7 +26,8 @@ const Login = () => {
     setMessage("");
 
     try {
-      const response = await axios.post("/api/users/login", {
+      // Use proxy-friendly relative path or api instance
+      const response = await api.post("/api/users/login", {
         email: formData.email,
         password: formData.password
       });
@@ -67,7 +69,7 @@ const Login = () => {
       });
 
       if (err.message === "Network Error" || !err.response) {
-        setMessage("Cannot connect to server. Make sure backend is running on localhost:5000");
+        setMessage("Cannot connect to server. Make sure backend is running on port 5001");
       } else if (err.response?.status === 404) {
         setMessage("User not found. Please sign up first.");
       } else if (err.response?.status === 401) {

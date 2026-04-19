@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Wrench, Zap, Droplets, Paintbrush, 
-  Trash2, Scissors, GraduationCap, Car, 
-  Hammer, ShieldCheck, ArrowRight, Loader 
+  Trash2, GraduationCap, Car, 
+  Hammer, ArrowRight, Loader 
 } from 'lucide-react';
 import axios from 'axios';
 import Logo from '../Logo';
@@ -69,13 +69,13 @@ const ServicesPage = () => {
     <div className="min-h-screen bg-slate-50">
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
-          <Link to="/"><Logo /></Link>
+          <Logo />
           <div className="hidden md:flex gap-8">
             <Link to="/companies" className="text-slate-600 hover:text-teal-600 font-semibold">Companies</Link>
             <Link to="/services" className="text-teal-600 font-bold">Services</Link>
             <Link to="/people" className="text-slate-600 hover:text-teal-600 font-semibold">People</Link>
           </div>
-          <Button variant="secondary" size="sm">Book a Service</Button>
+          <Button variant="secondary" size="sm"></Button>
         </div>
       </nav>
 
@@ -115,16 +115,7 @@ const ServicesPage = () => {
           </div>
         )}
 
-        <section className="mt-20 bg-teal-900 rounded-[40px] p-12 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-teal-800 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl opacity-50" />
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="max-w-xl">
-              <h2 className="text-3xl font-black mb-4">Can't find what you're looking for?</h2>
-              <p className="text-teal-100">Tell us what service you need and we'll find the best professionals for you within 24 hours.</p>
-            </div>
-            <Button variant="primary" size="lg">Request Custom Service</Button>
-          </div>
-        </section>
+       
       </main>
     </div>
   );
