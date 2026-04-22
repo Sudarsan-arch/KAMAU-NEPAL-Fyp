@@ -215,7 +215,7 @@ const Dashboard = () => {
     },
   ];
 
-  const recentJobs = [
+  const [recentJobs, setRecentJobs] = useState([
     {
       title: "Senior React Developer",
       company: "Tech Corp",
@@ -261,7 +261,7 @@ const Dashboard = () => {
       experience: "4+ Years",
       salary: "$50k - $70k"
     },
-  ];
+  ]);
 
   const handleLogout = () => {
     openConfirm({
@@ -392,15 +392,19 @@ const Dashboard = () => {
           const updatedJob = { ...selectedJob, status: "Service Taken" };
           setSelectedJob(updatedJob);
 
-          // Update the recentJobs array
-          const jobIndex = recentJobs.findIndex(j => j.title === selectedJob.title && j.company === selectedJob.company);
-          if (jobIndex !== -1) {
-            recentJobs[jobIndex].status = "Service Taken";
-            recentJobs[jobIndex].color = "bg-orange-100 text-orange-800";
-          }
+          // Update the recentJobs array using state
+          setRecentJobs(prevJobs => prevJobs.map(j => 
+            (j.title === selectedJob.title && j.company === selectedJob.company) 
+            ? { ...j, status: "Service Taken", color: "bg-orange-100 text-orange-800" } 
+            : j
+          ));
 
-          // Increment the services taken count in stats
-          stats[0].value = String(parseInt(stats[0].value) + 1);
+          // Increment the services taken count in bookingStats state
+          setBookingStats(prev => ({
+            ...prev,
+            servicesTaken: prev.servicesTaken + 1,
+            changeTaken: `+${(parseInt(prev.changeTaken.replace("+", "")) || 0) + 1}`
+          }));
 
           // Log the action
           console.log(`Service taken: ${selectedJob.title} from ${selectedJob.company}`);
@@ -730,9 +734,9 @@ const Dashboard = () => {
               <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in slide-in-from-bottom-4 duration-300">
                 <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-xl">{selectedJob.avatar}</div>
+                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-xl">{selectedJob?.avatar}</div>
                     <div>
-                      <h2 className="font-bold text-gray-900">Message {selectedJob.title}</h2>
+                      <h2 className="font-bold text-gray-900">Message {selectedJob?.title}</h2>
                       <p className="text-xs text-gray-500">Usually replies in &lt; 2h</p>
                     </div>
                   </div>

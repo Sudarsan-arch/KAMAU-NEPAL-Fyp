@@ -6,8 +6,9 @@ import axios from 'axios';
 import {
   X, Menu, Search, Bell, Zap, Compass, Target, Orbit, Eye,
   Power, SwitchCamera, Cpu, Activity, ChevronRight,
-  MessageSquare, DollarSign, User, Mail, Phone, MapPin
+  MessageSquare, DollarSign, User, Mail, Phone, MapPin, UserCircle, ShieldCheck
 } from 'lucide-react';
+import OptimizedImage from '../components/OptimizedImage';
 
 // Components
 import Logo from '../Logo';
@@ -16,6 +17,7 @@ import StatsCards from './components/StatsCards';
 import RequestsList from './components/RequestsList';
 import ProfessionalMessages from './components/ProfessionalMessages';
 import CustomerMap from './components/CustomerMap';
+import EditProfileModal from './components/EditProfileModal';
 
 const ProfessionalDashboard = () => {
   const navigate = useNavigate();
@@ -24,6 +26,7 @@ const ProfessionalDashboard = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [professionalData, setProfessionalData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [isUpdatingImage, setIsUpdatingImage] = useState(false);
 
@@ -319,10 +322,11 @@ const ProfessionalDashboard = () => {
         {/* Cover Image Section */}
         <div className="h-48 relative bg-slate-100 group">
           {professionalData?.coverImage ? (
-            <img 
-              src={professionalData.coverImage.startsWith('data:') ? professionalData.coverImage : `/${professionalData.coverImage.replace(/\\/g, '/')}`} 
-              className="w-full h-full object-cover" 
+            <OptimizedImage 
+              src={professionalData.coverImage} 
+              className="w-full h-full" 
               alt="Cover" 
+              objectFit="cover"
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-r from-teal-600/20 to-orange-600/20 flex items-center justify-center">
@@ -350,7 +354,12 @@ const ProfessionalDashboard = () => {
             <div className="relative group">
               <div className="w-32 h-32 rounded-[40px] bg-white border-4 border-white shadow-2xl overflow-hidden">
                 {professionalData?.profileImage ? (
-                  <img src={professionalData.profileImage.startsWith('data:') ? professionalData.profileImage : `/${professionalData.profileImage.replace(/\\/g, '/')}`} className="w-full h-full object-cover" alt="Profile" />
+                  <OptimizedImage 
+                    src={professionalData.profileImage} 
+                    className="w-full h-full" 
+                    alt="Profile" 
+                    fallbackIcon={UserCircle}
+                  />
                 ) : <div className="w-full h-full flex items-center justify-center text-4xl text-teal-600 font-black">{professionalData?.firstName?.charAt(0)}</div>}
               </div>
               <button 
@@ -368,39 +377,54 @@ const ProfessionalDashboard = () => {
                 onChange={(e) => handleImageUpdate('profileImage', e.target.files[0])}
               />
             </div>
-          <div>
-            <h3 className="text-3xl font-black text-slate-900">{professionalData?.firstName} {professionalData?.lastName}</h3>
-            <p className="text-teal-600 font-bold uppercase tracking-widest text-xs mt-1">{professionalData?.serviceCategory} Specialist</p>
-            <div className="flex items-center gap-4 mt-4">
-              <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500"><MapPin size={14} className="text-rose-500" /> {professionalData?.serviceArea}</span>
-              <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500"><Activity size={14} className="text-emerald-500" /> {professionalData?.verificationStatus}</span>
+            <div>
+              <h3 className="text-3xl font-black text-slate-900">{professionalData?.firstName} {professionalData?.lastName}</h3>
+              <p className="text-teal-600 font-bold uppercase tracking-widest text-xs mt-1">{professionalData?.serviceCategory} Specialist</p>
+              <div className="flex items-center gap-4 mt-4">
+                <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500"><MapPin size={14} className="text-rose-500" /> {professionalData?.serviceArea}</span>
+                <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500"><Activity size={14} className="text-emerald-500" /> {professionalData?.verificationStatus}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {[
-            { label: 'Full Identity', value: `${professionalData?.firstName} ${professionalData?.lastName}`, icon: User },
-            { label: 'Communication Link', value: 'Verified Secure Email', icon: Mail },
-            { label: 'Contact Frequency', value: 'High Performance', icon: Phone },
-            { label: 'Base Priority', value: professionalData?.hourlyWage + ' / hr', icon: DollarSign },
-          ].map((field, i) => (
-            <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-teal-200 transition-all">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <field.icon size={12} className="text-teal-600" /> {field.label}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {[
+              { label: 'Full Identity', value: `${professionalData?.firstName} ${professionalData?.lastName}`, icon: User },
+              { label: 'Communication Link', value: 'Verified Secure Email', icon: Mail },
+              { label: 'Contact Frequency', value: 'High Performance', icon: Phone },
+              { label: 'Base Priority', value: (professionalData?.hourlyWage || 0) + ' / hr', icon: DollarSign },
+            ].map((field, i) => (
+              <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-teal-200 transition-all">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <field.icon size={12} className="text-teal-600" /> {field.label}
+                </p>
+                <p className="text-sm font-black text-slate-900">{field.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {professionalData?.verificationStatus === 'verified' ? (
+            <button 
+              onClick={() => setIsEditModalOpen(true)}
+              className="mt-12 w-full py-5 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-[0.3em] text-[10px] hover:bg-teal-600 shadow-xl transition-all active:scale-[0.98]"
+            >
+              Modify Professional Records
+            </button>
+          ) : (
+            <div className="mt-12 p-6 bg-slate-50 border border-dashed border-slate-200 rounded-3xl text-center">
+              <ShieldCheck size={32} className="mx-auto text-slate-300 mb-3" />
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                Profile editing will be unlocked after verification
               </p>
-              <p className="text-sm font-black text-slate-900">{field.value}</p>
+              <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold">
+                Current Status: {professionalData?.verificationStatus || 'Pending'}
+              </p>
             </div>
-          ))}
+          )}
         </div>
-
-        <button className="mt-12 w-full py-5 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-[0.3em] text-[10px] hover:bg-teal-600 shadow-xl transition-all active:scale-[0.98]">
-          Synchronize Neural Profile
-        </button>
       </div>
     </div>
-  </div>
-);
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col overflow-hidden relative">
@@ -441,10 +465,11 @@ const ProfessionalDashboard = () => {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-[14px] bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 font-black text-lg overflow-hidden shadow-sm shadow-teal-100">
               {professionalData?.profileImage ? (
-                <img
-                  src={professionalData.profileImage.startsWith('data:') ? professionalData.profileImage : `/${professionalData.profileImage.replace(/\\/g, '/')}`}
-                  className="w-full h-full object-cover"
+                <OptimizedImage
+                  src={professionalData.profileImage}
+                  className="w-full h-full"
                   alt="Profile"
+                  fallbackIcon={UserCircle}
                 />
               ) : (
                 professionalData?.firstName?.charAt(0) || 'P'
@@ -486,25 +511,34 @@ const ProfessionalDashboard = () => {
         </aside>
 
         <main className="flex-1 overflow-y-auto h-full relative scroll-smooth overflow-x-hidden">
+          <div className="p-8 lg:p-12 space-y-12 max-w-7xl mx-auto">
+            <header className="animate-in fade-in slide-in-from-left-4 duration-700">
+              <h1 className="text-5xl font-black tracking-tighter text-slate-900 mb-2">
+                {activeTab === 'overview' ? 'Interface Overview' : menuItems.find(i => i.id === activeTab)?.label}
+              </h1>
+              <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">
+                Kamau Neural Network &bull; Session Active
+              </p>
+            </header>
 
-        <div className="p-8 lg:p-12 space-y-12 max-w-7xl mx-auto">
-          <header className="animate-in fade-in slide-in-from-left-4 duration-700">
-            <h1 className="text-5xl font-black tracking-tighter text-slate-900 mb-2">
-              {activeTab === 'overview' ? 'Interface Overview' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-            </h1>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">
-              Kamau Neural Network &bull; Session Active
-            </p>
-          </header>
-
-          {activeTab === 'overview' && renderOverview()}
-          {activeTab === 'requests' && renderRequests()}
-          {activeTab === 'map' && renderMap()}
-          {activeTab === 'messages' && renderMessages()}
-          {activeTab === 'earnings' && renderEarnings()}
-          {activeTab === 'profile' && renderProfile()}
-        </div>
-      </main>
+            {activeTab === 'overview' && renderOverview()}
+            {activeTab === 'requests' && renderRequests()}
+            {activeTab === 'map' && renderMap()}
+            {activeTab === 'messages' && renderMessages()}
+            {activeTab === 'earnings' && renderEarnings()}
+            {activeTab === 'profile' && renderProfile()}
+          </div>
+          
+          <EditProfileModal 
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            professionalData={professionalData}
+            onUpdate={(newData) => {
+              setProfessionalData(newData);
+              setRefetchTrigger(prev => prev + 1);
+            }}
+          />
+        </main>
       </div>
     </div>
   );

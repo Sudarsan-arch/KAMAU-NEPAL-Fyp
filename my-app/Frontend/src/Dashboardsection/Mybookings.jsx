@@ -534,9 +534,18 @@ export default function MyBookings() {
                                                 </button>
                                             )}
                                             {isProfessionalReviewed(selectedBooking.professionalId) ? (
-                                                <div className="w-full flex items-center justify-center gap-2 py-3 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200">
-                                                    <CheckCircle size={18} />
-                                                    Review Submitted
+                                                <div className="flex flex-col gap-2 w-full">
+                                                    <div className="w-full flex items-center justify-center gap-2 py-3 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200">
+                                                        <CheckCircle size={18} />
+                                                        Review Submitted
+                                                    </div>
+                                                    <button
+                                                        onClick={() => navigate(`/professional/${selectedBooking.professionalId?._id || selectedBooking.professionalId}`)}
+                                                        className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-teal-100"
+                                                    >
+                                                        <Calendar size={18} />
+                                                        Book Again
+                                                    </button>
                                                 </div>
                                             ) : (
                                                 <button
@@ -751,7 +760,22 @@ export default function MyBookings() {
                                     <CheckCircle size={40} />
                                 </div>
                                 <h3 className="text-2xl font-black text-gray-900 mb-2">Review Submitted!</h3>
-                                <p className="text-gray-500 font-medium">Thank you for your feedback. It helps others find great professionals.</p>
+                                <p className="text-gray-500 font-medium mb-6">Thank you for your feedback. It helps others find great professionals.</p>
+                                <div className="flex flex-col gap-3 w-full">
+                                    <button
+                                        onClick={() => navigate(`/professional/${reviewBooking.professionalId?._id || reviewBooking.professionalId}`)}
+                                        className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl transition shadow-lg shadow-teal-100 flex items-center justify-center gap-2"
+                                    >
+                                        <Calendar size={20} />
+                                        Book Again
+                                    </button>
+                                    <button
+                                        onClick={() => setShowReviewModal(false)}
+                                        className="w-full py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition"
+                                    >
+                                        Back to Bookings
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <>

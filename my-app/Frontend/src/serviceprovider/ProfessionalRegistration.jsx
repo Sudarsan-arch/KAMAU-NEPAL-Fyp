@@ -43,7 +43,15 @@ const ProfessionalRegistration = () => {
     formattedAddress: "",
     jobType: "full-time",
     tools: [],
-    availability: [{ day: "Monday", startTime: "09:00", endTime: "18:00" }]
+    availability: [
+      { day: "Monday", startTime: "06:00", endTime: "18:00" },
+      { day: "Tuesday", startTime: "06:00", endTime: "18:00" },
+      { day: "Wednesday", startTime: "06:00", endTime: "18:00" },
+      { day: "Thursday", startTime: "06:00", endTime: "18:00" },
+      { day: "Friday", startTime: "06:00", endTime: "18:00" },
+      { day: "Saturday", startTime: "06:00", endTime: "18:00" },
+      { day: "Sunday", startTime: "06:00", endTime: "18:00" },
+    ]
   })
 
   const [locationSearch, setLocationSearch] = useState("")
@@ -184,6 +192,13 @@ const ProfessionalRegistration = () => {
       newErrors.hourlyWage = "Hourly wage cannot be negative"
     }
 
+    // Availability validation
+    formData.availability.forEach((slot, index) => {
+      if (slot.startTime >= slot.endTime) {
+        newErrors[`availability_${index}`] = "End time must be after start time";
+      }
+    });
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -202,6 +217,25 @@ const ProfessionalRegistration = () => {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }))
     }
+  }
+
+  const handleJobTypeChange = (type) => {
+    let newAvailability = [...formData.availability];
+    if (type === 'full-time') {
+      newAvailability = [
+        { day: "Monday", startTime: "06:00", endTime: "18:00" },
+        { day: "Tuesday", startTime: "06:00", endTime: "18:00" },
+        { day: "Wednesday", startTime: "06:00", endTime: "18:00" },
+        { day: "Thursday", startTime: "06:00", endTime: "18:00" },
+        { day: "Friday", startTime: "06:00", endTime: "18:00" },
+        { day: "Saturday", startTime: "06:00", endTime: "18:00" },
+        { day: "Sunday", startTime: "06:00", endTime: "18:00" },
+      ];
+    } else if (type === 'part-time' && formData.jobType === 'full-time') {
+      // If switching back to part-time, reset to one default slot
+      newAvailability = [{ day: "Monday", startTime: "09:00", endTime: "18:00" }];
+    }
+    setFormData(prev => ({ ...prev, jobType: type, availability: newAvailability }));
   }
 
   const addAvailability = () => {
@@ -953,7 +987,7 @@ const ProfessionalRegistration = () => {
                   <div className="flex gap-4">
                     <button
                       type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, jobType: 'full-time' }))}
+                      onClick={() => handleJobTypeChange('full-time')}
                       className={`flex-1 py-3 sm:py-4 rounded-2xl border-2 font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all ${
                         formData.jobType === 'full-time' 
                           ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-100 scale-[1.02]' 
@@ -964,7 +998,7 @@ const ProfessionalRegistration = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, jobType: 'part-time' }))}
+                      onClick={() => handleJobTypeChange('part-time')}
                       className={`flex-1 py-3 sm:py-4 rounded-2xl border-2 font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all ${
                         formData.jobType === 'part-time' 
                           ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-100 scale-[1.02]' 
@@ -994,48 +1028,53 @@ const ProfessionalRegistration = () => {
 
                     <div className="space-y-3">
                       {formData.availability.map((slot, index) => (
-                        <div key={index} className="flex flex-wrap sm:flex-nowrap items-end gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl group transition-all hover:border-orange-200">
-                          <div className="flex-1 min-w-[140px] space-y-1.5">
-                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Day</label>
-                            <select
-                              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-500 outline-none"
-                              value={slot.day}
-                              onChange={(e) => handleAvailabilityChange(index, 'day', e.target.value)}
-                            >
-                              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekdays', 'Weekends', 'Daily'].map(day => (
-                                <option key={day} value={day}>{day}</option>
-                              ))}
-                            </select>
-                          </div>
+                        <div key={index} className="space-y-1">
+                          <div className="flex flex-wrap sm:flex-nowrap items-end gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl group transition-all hover:border-orange-200">
+                            <div className="flex-1 min-w-[140px] space-y-1.5">
+                              <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Day</label>
+                              <select
+                                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-500 outline-none"
+                                value={slot.day}
+                                onChange={(e) => handleAvailabilityChange(index, 'day', e.target.value)}
+                              >
+                                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekdays', 'Weekends', 'Daily'].map(day => (
+                                  <option key={day} value={day}>{day}</option>
+                                ))}
+                              </select>
+                            </div>
 
-                          <div className="flex-1 min-w-[100px] space-y-1.5">
-                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">From</label>
-                            <input
-                              type="time"
-                              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-500 outline-none"
-                              value={slot.startTime}
-                              onChange={(e) => handleAvailabilityChange(index, 'startTime', e.target.value)}
-                            />
-                          </div>
+                            <div className="flex-1 min-w-[100px] space-y-1.5">
+                              <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">From</label>
+                              <input
+                                type="time"
+                                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-500 outline-none"
+                                value={slot.startTime}
+                                onChange={(e) => handleAvailabilityChange(index, 'startTime', e.target.value)}
+                              />
+                            </div>
 
-                          <div className="flex-1 min-w-[100px] space-y-1.5">
-                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">To</label>
-                            <input
-                              type="time"
-                              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-500 outline-none"
-                              value={slot.endTime}
-                              onChange={(e) => handleAvailabilityChange(index, 'endTime', e.target.value)}
-                            />
-                          </div>
+                            <div className="flex-1 min-w-[100px] space-y-1.5">
+                              <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">To</label>
+                              <input
+                                type="time"
+                                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold focus:ring-2 focus:ring-orange-500 outline-none"
+                                value={slot.endTime}
+                                onChange={(e) => handleAvailabilityChange(index, 'endTime', e.target.value)}
+                              />
+                            </div>
 
-                          {formData.availability.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeAvailability(index)}
-                              className="p-2 text-slate-400 hover:text-red-500 transition-colors mb-0.5"
-                            >
-                              <X size={20} />
-                            </button>
+                            {formData.availability.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeAvailability(index)}
+                                className="p-2 text-slate-400 hover:text-red-500 transition-colors mb-0.5"
+                              >
+                                <X size={20} />
+                              </button>
+                            )}
+                          </div>
+                          {errors[`availability_${index}`] && (
+                            <p className="text-[10px] text-red-500 ml-1 -mt-1 font-bold">{errors[`availability_${index}`]}</p>
                           )}
                         </div>
                       ))}

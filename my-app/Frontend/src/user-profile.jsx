@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from 'react-router-dom'
 import axios from "axios"
-import { Camera, Mail, Phone, MapPin, CheckCircle2, ArrowLeft, AlertCircle, Menu, X, Bell, Lock, ShieldCheck, Key } from "lucide-react"
+import { Camera, Mail, Phone, MapPin, CheckCircle2, ArrowLeft, AlertCircle, Menu, X, Bell, Lock, ShieldCheck, Key, UserCircle } from "lucide-react"
 import Sidebar from './components/Sidebar'
 import Logo from './Logo'
+import OptimizedImage from './components/OptimizedImage'
 
 export default function UserProfile() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -628,7 +629,12 @@ export default function UserProfile() {
                     <div className="relative">
                       <div className="h-32 w-32 rounded-full bg-gradient-to-br from-teal-400 to-orange-400 flex items-center justify-center text-white text-4xl font-bold overflow-hidden">
                         {profileImage ? (
-                          <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                          <OptimizedImage 
+                            src={profileImage} 
+                            alt="Profile" 
+                            className="w-full h-full" 
+                            fallbackIcon={UserCircle}
+                          />
                         ) : (
                           getInitials(formData.fullName)
                         )}

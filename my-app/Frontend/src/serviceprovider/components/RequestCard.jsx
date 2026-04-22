@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { MapPin, Calendar, Clock, CheckCircle, XCircle, User, Mail, Phone, X, FileText } from 'lucide-react';
+import { MapPin, Calendar, Clock, CheckCircle, XCircle, User, Mail, Phone, X, FileText, UserCircle } from 'lucide-react';
+import OptimizedImage from '../../components/OptimizedImage';
 
 const RequestCard = ({ request, onAction, onDownloadPDF }) => {
   const [loading, setLoading] = useState(false);
@@ -35,11 +36,11 @@ const RequestCard = ({ request, onAction, onDownloadPDF }) => {
               className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-2xl font-bold text-teal-600 border border-slate-100 overflow-hidden flex-shrink-0 shadow-inner hover:scale-105 transition-transform"
             >
               {request.userId?.profileImage ? (
-                <img 
-                  src={request.userId.profileImage ? (request.userId.profileImage.startsWith('data:') || request.userId.profileImage.startsWith('http') ? request.userId.profileImage : `/${request.userId.profileImage.replace(/\\/g, '/')}`) : `https://ui-avatars.com/api/?name=${request.fullName}&background=random`} 
-                  className="w-full h-full object-cover" 
+                <OptimizedImage 
+                  src={request.userId.profileImage} 
+                  className="w-full h-full" 
                   alt={request.fullName}
-                  referrerPolicy="no-referrer"
+                  fallbackIcon={UserCircle}
                 />
               ) : (
                 request.fullName?.charAt(0) || <User size={24} />
@@ -153,11 +154,11 @@ const RequestCard = ({ request, onAction, onDownloadPDF }) => {
                 <div className="w-32 h-32 rounded-[40px] bg-white p-1 shadow-xl">
                   <div className="w-full h-full rounded-[38px] bg-slate-50 flex items-center justify-center text-4xl font-black text-teal-600 border border-slate-100 overflow-hidden bg-white">
                     {request.userId?.profileImage ? (
-                      <img 
-                        src={request.userId.profileImage ? (request.userId.profileImage.startsWith('data:') || request.userId.profileImage.startsWith('http') ? request.userId.profileImage : `/${request.userId.profileImage.replace(/\\/g, '/')}`) : `https://ui-avatars.com/api/?name=${request.fullName}&background=random`} 
-                        className="w-full h-full object-cover" 
+                      <OptimizedImage 
+                        src={request.userId.profileImage} 
+                        className="w-full h-full" 
                         alt={request.fullName}
-                        referrerPolicy="no-referrer"
+                        fallbackIcon={UserCircle}
                       />
                     ) : (
                       request.fullName?.charAt(0)

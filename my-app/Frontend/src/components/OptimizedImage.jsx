@@ -28,16 +28,14 @@ const OptimizedImage = ({
       return trimmedSrc;
     }
     
-    // For local paths, normalize slashes
+    // For local paths, normalize slashes and ensure no leading slash
     let cleanPath = trimmedSrc.replace(/\\/g, '/');
+    if (cleanPath.startsWith('/')) cleanPath = cleanPath.slice(1);
     
-    // Ensure no leading slash for the component parts, then encode
-    const parts = cleanPath.split('/').filter(p => p.length > 0);
-    const encodedPath = parts.map(encodeURIComponent).join('/');
+    // Encode parts but keep slashes
+    const encodedPath = cleanPath.split('/').map(encodeURIComponent).join('/');
     
-    // We expect the path to be served via the proxy at /uploads
-    // or we can explicitly prepend the backend URL if we want to bypass proxy
-    // For now, let's keep it relative to the domain (localhost:3000) and ensure the proxy works
+    // Prepend a single leading slash
     return '/' + encodedPath;
   };
 
