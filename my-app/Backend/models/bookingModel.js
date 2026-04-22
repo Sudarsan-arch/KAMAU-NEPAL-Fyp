@@ -77,9 +77,17 @@ const bookingSchema = new mongoose.Schema(
     paymentDetails: {
       type: Object,
       default: null
+    },
+    customerLocation: {
+      type: { type: String, enum: ["Point"], default: "Point" },
+      coordinates: { type: [Number], default: [0, 0] } // [longitude, latitude]
     }
   },
   { timestamps: true }
 );
+
+// Add index for location-based queries
+bookingSchema.index({ customerLocation: "2dsphere" });
+bookingSchema.index({ status: 1, professionalId: 1 });
 
 export default mongoose.model("Booking", bookingSchema);

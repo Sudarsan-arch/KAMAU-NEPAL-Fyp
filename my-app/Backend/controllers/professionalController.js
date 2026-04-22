@@ -165,7 +165,7 @@ export const registerProfessional = async (req, res) => {
       phone,
       serviceCategory,
       serviceArea,
-      hourlyWage: parseFloat(hourlyWage),
+      hourlyWage: parseFloat(hourlyWage) || 0,
       bio: bio || '',
       userId: userId || null,
       profileImage: profileImagePath,
@@ -177,9 +177,24 @@ export const registerProfessional = async (req, res) => {
       },
       formattedAddress: formattedAddress || serviceArea,
       jobType: jobType || 'full-time',
-      availability: typeof availability === 'string' ? JSON.parse(availability) : availability,
-      tools: typeof tools === 'string' ? [...new Set(JSON.parse(tools))] : (Array.isArray(tools) ? [...new Set(tools)] : []),
-      skills: typeof req.body.skills === 'string' ? [...new Set(JSON.parse(req.body.skills))] : (Array.isArray(req.body.skills) ? [...new Set(req.body.skills)] : []),
+      availability: (() => {
+        try {
+          return typeof availability === 'string' ? JSON.parse(availability) : (Array.isArray(availability) ? availability : []);
+        } catch (e) { return []; }
+      })(),
+      tools: (() => {
+        try {
+          const parsed = typeof tools === 'string' ? JSON.parse(tools) : tools;
+          return Array.isArray(parsed) ? [...new Set(parsed)] : [];
+        } catch (e) { return []; }
+      })(),
+      skills: (() => {
+        try {
+          const skillsData = req.body.skills;
+          const parsed = typeof skillsData === 'string' ? JSON.parse(skillsData) : skillsData;
+          return Array.isArray(parsed) ? [...new Set(parsed)] : [];
+        } catch (e) { return []; }
+      })(),
       verificationStatus: 'pending',
       isVerified: false,
       isActive: true,

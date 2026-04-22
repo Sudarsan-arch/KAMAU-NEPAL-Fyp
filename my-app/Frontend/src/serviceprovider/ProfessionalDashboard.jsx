@@ -15,6 +15,7 @@ import NotificationsMenu from '../components/NotificationsMenu';
 import StatsCards from './components/StatsCards';
 import RequestsList from './components/RequestsList';
 import ProfessionalMessages from './components/ProfessionalMessages';
+import CustomerMap from './components/CustomerMap';
 
 const ProfessionalDashboard = () => {
   const navigate = useNavigate();
@@ -211,6 +212,7 @@ const ProfessionalDashboard = () => {
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: Compass, badge: null },
     { id: 'requests', label: 'Service Requests', icon: Target, badge: stats.pendingRequests || null },
+    { id: 'map', label: 'Service Map', icon: Orbit, badge: allRequests.filter(r => ['Pending', 'Confirmed', 'In Progress'].includes(r.status)).length || null },
     { id: 'messages', label: 'Messages', icon: MessageSquare, badge: 3 },
     { id: 'earnings', label: 'Earnings', icon: Orbit, badge: null },
     { id: 'profile', label: 'Public Profile', icon: Eye, badge: null },
@@ -264,6 +266,15 @@ const ProfessionalDashboard = () => {
         onDownloadPDF={handleDownloadPDF}
         loading={false}
         error={null}
+      />
+    </div>
+  );
+
+  const renderMap = () => (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <CustomerMap 
+        bookings={allRequests.filter(r => ['Pending', 'Confirmed', 'In Progress'].includes(r.status))} 
+        professionalLocation={professionalData?.location}
       />
     </div>
   );
@@ -488,6 +499,7 @@ const ProfessionalDashboard = () => {
 
           {activeTab === 'overview' && renderOverview()}
           {activeTab === 'requests' && renderRequests()}
+          {activeTab === 'map' && renderMap()}
           {activeTab === 'messages' && renderMessages()}
           {activeTab === 'earnings' && renderEarnings()}
           {activeTab === 'profile' && renderProfile()}

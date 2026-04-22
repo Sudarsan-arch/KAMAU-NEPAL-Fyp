@@ -20,7 +20,8 @@ export const createBooking = async (req, res) => {
       hourlyRate,
       totalCost,
       rating,
-      notes
+      notes,
+      customerLocation
     } = req.body;
 
     // Validate required fields
@@ -63,7 +64,8 @@ export const createBooking = async (req, res) => {
       totalCost: totalCost || "रू 0.00",
       rating: rating || 0,
       notes: notes || "",
-      status: "Pending"
+      status: "Pending",
+      customerLocation: customerLocation || { type: "Point", coordinates: [0, 0] }
     });
 
     await booking.save();
@@ -172,17 +174,36 @@ export const updateBookingStatus = async (req, res) => {
       });
     }
 
+    // Capture the existing booking to check previous status
+    const existingBooking = await Booking.findById(id);
+    if (!existingBooking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found"
+      });
+    }
+
+    const previousStatus = existingBooking.status;
+
     const booking = await Booking.findByIdAndUpdate(
       id,
       { status, notes: notes || "" },
       { new: true, runValidators: true }
     );
 
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: "Booking not found"
-      });
+    // Synchronize completedJobs count in Professional model
+    if (booking.professionalId && status !== previousStatus) {
+      if (status === "Completed") {
+        await Professional.findByIdAndUpdate(booking.professionalId, { 
+          $inc: { completedJobs: 1 } 
+        });
+        console.log(`Incremented completedJobs for professional ${booking.professionalId}`);
+      } else if (previousStatus === "Completed") {
+        await Professional.findByIdAndUpdate(booking.professionalId, { 
+          $inc: { completedJobs: -1 } 
+        });
+        console.log(`Decremented completedJobs for professional ${booking.professionalId}`);
+      }
     }
 
     // Trigger notification for the user
@@ -229,6 +250,7 @@ export const updateBookingStatus = async (req, res) => {
     });
   }
 };
+
 
 /**
  * Delete a booking

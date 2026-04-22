@@ -56,6 +56,7 @@ const ProfessionalProfile = () => {
   const [requestDate, setRequestDate] = useState('');
   const [requestTime, setRequestTime] = useState('');
   const [requestLocation, setRequestLocation] = useState('');
+  const [customerCoords, setCustomerCoords] = useState({ lat: null, lng: null });
 
   // Review States
   const [reviews, setReviews] = useState([]);
@@ -245,6 +246,24 @@ const ProfessionalProfile = () => {
       setRequestLocation(localStorage.getItem('userLocation') || "");
     }
 
+    // Attempt to get live geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCustomerCoords({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          console.log("Captured live location:", position.coords.latitude, position.coords.longitude);
+        },
+        (error) => {
+          console.warn("Geolocation access denied or failed:", error.message);
+          // Fallback to coordinates from saved address if possible (future enhancement)
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    }
+
     setIsRequestModalOpen(true);
   };
 
@@ -296,7 +315,11 @@ const ProfessionalProfile = () => {
         location: requestLocation,
         hourlyRate: profile?.hourlyWage ? `रू ${profile.hourlyWage}` : "रू 0.00",
         totalCost: profile?.hourlyWage ? `रू ${profile.hourlyWage}` : "रू 0.00", // Initial cost estimation
-        status: 'Pending'
+        status: 'Pending',
+        customerLocation: customerCoords.lat ? {
+          type: "Point",
+          coordinates: [customerCoords.lng, customerCoords.lat]
+        } : undefined
       };
 
       const result = await createBooking(bookingData);

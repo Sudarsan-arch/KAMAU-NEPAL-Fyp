@@ -81,3 +81,32 @@ mongoose
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`Server running on http://127.0.0.1:${PORT}`);
 });
+
+/* ===============================
+   GLOBAL ERROR HANDLER
+================================ */
+app.use((err, req, res, next) => {
+  console.error("❌ Global Error Handler:", err);
+  
+  // Multer errors
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      success: false,
+      message: "File size is too large. Max limit is 30MB."
+    });
+  }
+  
+  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+    return res.status(400).json({
+      success: false,
+      message: "Unexpected file field or too many files."
+    });
+  }
+
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+});

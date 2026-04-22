@@ -464,6 +464,7 @@ const ProfessionalRegistration = () => {
     { value: "graphic_designer", label: "🎨 Graphic Designer" },
     { value: "logo_designer", label: "✨ Logo Designer" },
     { value: "developer", label: "⌨️ Developer" },
+    { value: "waiter", label: "🤵 Waiter" },
   ]
 
 

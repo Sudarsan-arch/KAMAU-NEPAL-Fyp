@@ -171,7 +171,8 @@ const HomePage = () => {
             'freelancer': { type: 'emoji', value: '💻' },
             'graphic_designer': { type: 'emoji', value: '🎨' },
             'logo_designer': { type: 'emoji', value: '✨' },
-            'developer': { type: 'emoji', value: '⌨️' }
+            'developer': { type: 'emoji', value: '⌨️' },
+            'waiter': { type: 'emoji', value: '🤵' }
           };
 
           const dynamicCategories = response.data.data.map(cat => {
@@ -202,16 +203,24 @@ const HomePage = () => {
       {/* Navigation Part */}
       <nav className="sticky top-0 z-50 bg-white/40 backdrop-blur-2xl border-b border-slate-200/50 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <Logo />
-            <div className="hidden md:flex items-center gap-8">
+          <div className="flex items-center h-20">
+            {/* Left: Logo */}
+            <div className="flex-1">
+              <Logo />
+            </div>
+
+            {/* Center: Navigation Links */}
+            <div className="hidden md:flex items-center gap-10">
               {['Companies', 'Services', 'People'].map((item) => (
                 <Link key={item} to={`/${item.toLowerCase()}`} className="text-sm font-semibold text-slate-600 hover:text-teal-600 transition-colors">
                   {item}
                 </Link>
               ))}
-              <div className="h-6 w-px bg-slate-200 mx-2" />
-              <div className="flex items-center gap-3">
+            </div>
+
+            {/* Right: Auth Buttons */}
+            <div className="flex-1 flex justify-end">
+              <div className="hidden md:flex items-center gap-3">
                 {isLoggedIn ? (
                   <>
                     <button
@@ -240,11 +249,7 @@ const HomePage = () => {
                       <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/professional-registration')}>
                         <Clock size={16} /> Pending Verification
                       </Button>
-                    ) : (
-                      <Button variant="secondary" size="sm" className="gap-2" onClick={() => navigate('/professional-registration')}>
-                        <Briefcase size={16} /> Register as Professional
-                      </Button>
-                    )}
+                    ) : null}
                     <Button variant="outline" size="sm" onClick={handleLogout} className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300">
                       Log Out
                     </Button>
@@ -253,18 +258,16 @@ const HomePage = () => {
                   <>
                     <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Log In</Button>
                     <Button variant="outline" size="sm" onClick={() => navigate('/signup')}>Sign Up</Button>
-                    <Button variant="secondary" size="sm" className="gap-2" onClick={() => navigate('/professional-registration')
-                    }>
-                      <Briefcase size={16} /> Register as Professional
-                    </Button>
                   </>
                 )}
               </div>
-            </div>
-            <div className="md:hidden flex items-center">
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-slate-600 hover:text-teal-600">
-                {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
+              
+              {/* Mobile Menu Toggle */}
+              <div className="md:hidden flex items-center">
+                <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-slate-600 hover:text-teal-600">
+                  {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -287,9 +290,7 @@ const HomePage = () => {
                     <Button className="w-full" variant="outline" onClick={() => { navigate('/professional-registration'); setMobileMenuOpen(false); }}>
                        <Clock size={16} className="mr-2" /> Pending Verification
                     </Button>
-                  ) : (
-                    <Button className="w-full" variant="secondary" onClick={() => { navigate('/professional-registration'); setMobileMenuOpen(false); }}>Register as Professional</Button>
-                  )}
+                  ) : null}
                   <Button className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300" variant="outline" onClick={() => { handleLogout(); setMobileMenuOpen(false); }}>
                     Log Out
                   </Button>
@@ -298,7 +299,6 @@ const HomePage = () => {
                 <>
                   <Button className="w-full" variant="outline" onClick={() => navigate('/login')}>Log In</Button>
                   <Button className="w-full" onClick={() => navigate('/signup')}>Sign Up</Button>
-                  <Button className="w-full" variant="secondary" onClick={() => navigate('/professional-registration')}>Register as Professional</Button>
                 </>
               )}
             </div>
@@ -317,10 +317,10 @@ const HomePage = () => {
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-100 text-teal-700 text-sm font-bold mb-6">
                   <Zap size={14} className="fill-teal-700" /> Trusted by 10,000+ Professionals
                 </div>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-[1.1] mb-6 tracking-tight">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 leading-[1.1] mb-6 tracking-tight">
                   Find Expert <span className="text-teal-600">Employees</span> & Professionals in Nepal
                 </h1>
-                <p className="text-lg text-slate-600 mb-10 max-w-2xl leading-relaxed">
+                <p className="text-base text-slate-600 mb-10 max-w-2xl leading-relaxed">
                   Whether you need a master carpenter, a software developer, or a reliable housekeeper, Kamau Nepal connects you with verified talent right in your neighborhood.
                 </p>
                 <div className="relative group max-w-2xl mb-12">
@@ -380,7 +380,7 @@ const HomePage = () => {
         {/* Services Part */}
         <section className="py-24 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl md:text-4xl font-black text-orange-500 mb-4 tracking-tight">What do you need today?</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-orange-500 mb-4 tracking-tight">What do you need today?</h2>
             <p className="text-slate-500 max-w-2xl mx-auto font-medium mb-16">Browse through our most popular service categories and find exactly who you're looking for.</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
               {loadingCategories ? (
@@ -401,7 +401,7 @@ const HomePage = () => {
                         <span className="text-5xl">{category.icon}</span>
                       )}
                     </div>
-                    <p className="font-bold text-slate-800 text-center">{category.name}</p>
+                    <p className="font-semibold text-slate-800 text-center">{category.name}</p>
                     <span className="text-[10px] uppercase tracking-widest text-teal-600 font-bold mt-1">Available Now</span>
                   </button>
                 ))
@@ -417,7 +417,7 @@ const HomePage = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
               <div>
-                <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-4 tracking-tight">Featured Professionals</h2>
+                <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-4 tracking-tight">Featured Professionals</h2>
                 <p className="text-slate-500 font-medium">Top-rated individuals verified by our team for excellence.</p>
               </div>
               <Button 
@@ -449,7 +449,7 @@ const HomePage = () => {
                       {p.verified && <div className="bg-teal-50 text-teal-600 p-1.5 rounded-xl"><CheckCircle2 size={18} /></div>}
                     </div>
                     <div className="mb-4">
-                      <h3 className="text-xl font-bold text-slate-900 group-hover:text-teal-600 transition-colors">{p.name}</h3>
+                      <h3 className="text-lg font-bold text-slate-900 group-hover:text-teal-600 transition-colors">{p.name}</h3>
                       <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest mt-1">{p.title}</p>
                     </div>
                     <div className="space-y-3 mb-8">
@@ -464,7 +464,7 @@ const HomePage = () => {
                       <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-black text-emerald-600 w-fit">
                         <CheckCircle2 size={14} className="text-emerald-500" /> {p.completedJobs} {p.completedJobs === 1 ? 'Service' : 'Services'} Done
                       </div>
-                      <div className="text-lg font-black text-slate-900">{p.hourlyRate}</div>
+                      <div className="text-base font-black text-slate-900">{p.hourlyRate}</div>
                     </div>
                     <Button
                       variant="secondary"
@@ -499,17 +499,19 @@ const HomePage = () => {
               </div>
             </div>
             <div>
-              <h4 className="text-white font-bold mb-6">Explore</h4>
+              <h4 className="text-white font-semibold mb-6">Explore</h4>
               <ul className="space-y-4 text-sm font-medium">
-                {['Services', 'Companies', 'Featured Talent', 'How it Works'].map(l => (
-                  <li key={l}><Link to="#" className="hover:text-teal-400 transition-colors">{l}</Link></li>
-                ))}
+                <li><Link to="/services" className="hover:text-teal-400 transition-colors">Services</Link></li>
+                <li><Link to="/companies" className="hover:text-teal-400 transition-colors">Companies</Link></li>
+                <li><Link to="/explore-jobs" className="hover:text-teal-400 transition-colors">Featured Talent</Link></li>
+                <li><Link to="/help" className="hover:text-teal-400 transition-colors">How it Works</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-white font-bold mb-6">Support</h4>
+              <h4 className="text-white font-semibold mb-6">Support</h4>
               <ul className="space-y-4 text-sm font-medium">
-                {['Help Center', 'Privacy Policy', 'Terms of Service', 'Trust & Safety'].map(l => (
+                <li><Link to="/help" className="hover:text-teal-400 transition-colors">Help Center</Link></li>
+                {['Privacy Policy', 'Terms of Service', 'Trust & Safety'].map(l => (
                   <li key={l}><Link to="#" className="hover:text-teal-400 transition-colors">{l}</Link></li>
                 ))}
               </ul>

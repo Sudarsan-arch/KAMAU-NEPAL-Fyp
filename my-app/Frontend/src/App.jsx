@@ -23,6 +23,7 @@ import ProfessionalDashboard from './serviceprovider/ProfessionalDashboard';
 import CompaniesPage from './Homepage/CompaniesPage';
 import PeoplePage from './Homepage/PeoplePage';
 import ServicesPage from './Homepage/ServicesPage';
+import HelpCentre from './HelpCentre/HelpCentre';
 
 import './index.css';
 import './Homepage/global.css';
@@ -43,6 +44,7 @@ const App = () => {
           <Route path="/companies" element={<CompaniesPage />} />
           <Route path="/people" element={<PeoplePage />} />
           <Route path="/services" element={<ServicesPage />} />
+          <Route path="/help" element={<HelpCentre />} />
 
           {/* Admin Routes */}
           <Route

@@ -194,7 +194,7 @@ const JobDisplay = ({ job, onBack }) => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Completed Jobs</p>
-                  <p className="text-lg font-bold text-gray-900">45+</p>
+                  <p className="text-lg font-bold text-gray-900">{job.completedJobs || 0}</p>
                 </div>
               </div>
             </div>
