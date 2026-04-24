@@ -1,13 +1,16 @@
 import React from 'react';
 import RequestCard from './RequestCard';
 import { Bell } from 'lucide-react';
+import { useTranslation } from '../../utils/LanguageContext';
 
-const RequestsList = ({ requests, onAction, onDownloadPDF, loading, error, title = "Active Requests" }) => {
+const RequestsList = ({ requests, onAction, onDownloadPDF, loading, error, title }) => {
+  const { t } = useTranslation();
+  const displayTitle = title || t('active_requests');
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <div className="w-12 h-12 border-4 border-teal-500/20 border-t-teal-500 rounded-full animate-spin"></div>
-        <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">Scanning central database...</p>
+        <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">{t('scanning_database')}</p>
       </div>
     );
   }
@@ -24,9 +27,9 @@ const RequestsList = ({ requests, onAction, onDownloadPDF, loading, error, title
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-2xl font-black text-slate-900 tracking-tight">{title}</h3>
+        <h3 className="text-2xl font-black text-slate-900 tracking-tight">{displayTitle}</h3>
         <div className="px-3 py-1 bg-teal-50 text-teal-600 rounded-lg text-[10px] font-black border border-teal-100 uppercase tracking-wider">
-          {requests.length} Result{requests.length !== 1 ? 's' : ''}
+          {requests.length} {t('results')}
         </div>
       </div>
 
@@ -42,8 +45,8 @@ const RequestsList = ({ requests, onAction, onDownloadPDF, loading, error, title
               <div className="w-20 h-20 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-center mx-auto mb-6 text-slate-300 group-hover:scale-110 transition-transform duration-500">
                 <Bell size={32} />
               </div>
-              <h3 className="text-xl font-black text-slate-900 mb-2">No customer requests yet.</h3>
-              <p className="text-slate-500 font-medium text-sm max-w-xs mx-auto">Your signal is broadcasted. New requests will appear here as soon as they are received.</p>
+              <h3 className="text-xl font-black text-slate-900 mb-2">{t('no_requests_title')}</h3>
+              <p className="text-slate-500 font-medium text-sm max-w-xs mx-auto">{t('no_requests_desc')}</p>
             </div>
           </div>
         )}

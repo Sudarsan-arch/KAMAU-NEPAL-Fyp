@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, CheckCircle, Info, X } from 'lucide-react';
+import { useTranslation } from '../utils/LanguageContext';
 
 const ConfirmDialog = ({ 
   isOpen, 
@@ -8,11 +9,15 @@ const ConfirmDialog = ({
   onConfirm, 
   title, 
   message, 
-  confirmText = "Confirm", 
-  cancelText = "Cancel",
+  confirmText, 
+  cancelText,
   type = "danger" // danger, success, info
 }) => {
+  const { t } = useTranslation();
   if (!isOpen) return null;
+
+  const displayConfirm = confirmText || t('confirm');
+  const displayCancel = cancelText || t('cancel');
 
   const themes = {
     danger: {
@@ -76,13 +81,13 @@ const ConfirmDialog = ({
                   }}
                   className={`w-full py-4 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg transition-all active:scale-[0.98] ${currentTheme.button}`}
                 >
-                  {confirmText}
+                  {displayConfirm}
                 </button>
                 <button 
                   onClick={onClose}
                   className="w-full py-4 bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all"
                 >
-                  {cancelText}
+                  {displayCancel}
                 </button>
               </div>
             </div>

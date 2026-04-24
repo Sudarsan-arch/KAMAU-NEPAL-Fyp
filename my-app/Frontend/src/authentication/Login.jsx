@@ -4,13 +4,16 @@ import { Mail, Lock, ArrowRight } from "lucide-react";
 import axios from "axios";
 import api from "../services/apiInstance";
 import { useGoogleLogin } from '@react-oauth/google';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "", rememberMe: false });
+  const [bookingDialog, setBookingDialog] = useState({ open: false, title: '', message: '', type: '' });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+// added state for success dialog
+    const [successDialog, setSuccessDialog] = useState({ open: false, title: '', message: '', type: 'success' });
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -47,18 +50,20 @@ const Login = () => {
       localStorage.setItem("userRole", role);
       localStorage.setItem("activeRole", role === "admin" ? "admin" : "user");
 
-      if (role === "admin") {
-        // Store specifically for admin components if they expect it
-        localStorage.setItem("adminToken", token);
-        localStorage.setItem("adminUser", JSON.stringify(response.data.data || { id: userId, username: name, fullName: name, role }));
-        navigate("/admin/dashboard");
-      } else if (!verified) {
-        // If user is not verified, redirect to OTP page
-        navigate("/verify-otp");
-      } else {
-        // Navigate to dashboard
-        navigate("/dashboard");
-      }
+        // after successful login, show success dialog before navigating
+        if (role === "admin") {
+          setSuccessDialog({ open: true, title: t('login_success'), message: t('welcome_back_admin'), type: 'success' });
+          setTimeout(() => {
+            navigate("/admin/dashboard");
+          }, 1500);
+        } else if (!verified) {
+          navigate("/verify-otp");
+        } else {
+          setSuccessDialog({ open: true, title: t('login_success'), message: t('welcome_back_user'), type: 'success' });
+          setTimeout(() => {
+            navigate("/dashboard");
+          }, 1500);
+        }
 
     } catch (err) {
       console.error("Login error details:", {
@@ -76,8 +81,13 @@ const Login = () => {
         setMessage("Email not verified. Please verify OTP first.");
       } else if (err.response?.data?.message) {
         setMessage(err.response.data.message);
-      } else {
-        setMessage("Server error. Please try again.");
+        // after successful status update, show dialog
+        if (newStatus === 'Accepted') {
+          setBookingDialog({ open: true, title: t('booking_accepted'), message: t('booking_success_message'), type: 'success' });
+        } else if (newStatus === 'Rejected') {
+          setBookingDialog({ open: true, title: t('booking_rejected'), message: t('booking_failure_message'), type: 'danger' });
+        }
+        setRefetchTrigger(prev => prev + 1);error. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -125,14 +135,22 @@ const Login = () => {
     alert(`${provider} login is coming soon!`);
   };
 
-  return (
+        <ConfirmDialog
+          isOpen={successDialog.open}
+          onClose={() => setSuccessDialog({ ...successDialog, open: false })}
+          title={successDialog.title}
+          message={successDialog.message}
+          type={successDialog.type}
+          confirmText={t('ok')}
+          cancelText={t('close')}
+        />
     <div className="min-h-screen bg-cyan-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
-        <h1 className="text-3xl font-bold text-teal-900 mb-6 text-center">Login</h1>
+        <h1 className="text-3xl font-bold text-teal-900 mb-6 text-center">{t('login')}</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('email')}</label>
             <div className="relative">
               <Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
               <input
@@ -140,7 +158,7 @@ const Login = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                placeholder="Enter your email"
+                placeholder={t('enter_email')}
                 required
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
               />
@@ -149,7 +167,7 @@ const Login = () => {
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('password')}</label>
             <div className="relative">
               <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
               <input
@@ -157,7 +175,7 @@ const Login = () => {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="Enter your password"
+                placeholder={t('enter_password')}
                 required
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
               />
@@ -176,14 +194,14 @@ const Login = () => {
                 className="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
               />
               <label htmlFor="rememberMe" className="ml-2 text-sm text-gray-600">
-                Remember me
+                {t('remember_me')}
               </label>
             </div>
             <Link
               to="/forgot-password"
               className="text-sm text-teal-600 font-medium hover:text-teal-700"
             >
-              Forgot password?
+              {t('forgot_password')}
             </Link>
           </div>
 
@@ -193,7 +211,7 @@ const Login = () => {
             disabled={loading}
             className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-4 rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? "Logging in..." : "Sign In"}
+            {loading ? t('logging_in') : t('sign_in')}
             <ArrowRight size={18} />
           </button>
         </form>
@@ -201,9 +219,9 @@ const Login = () => {
         {message && <p className="mt-4 text-center text-red-600">{message}</p>}
 
         <p className="mt-6 text-center text-sm text-gray-600">
-          Don't have an account?{" "}
+          {t('dont_have_account')}{" "}
           <Link to="/signup" className="text-teal-600 font-semibold hover:text-teal-700">
-            Sign up here
+            {t('sign_up_here')}
           </Link>
         </p>
 
@@ -211,7 +229,7 @@ const Login = () => {
         <div className="mt-8">
           <div className="relative flex items-center justify-center mb-6">
             <div className="border-t border-gray-200 w-full"></div>
-            <span className="bg-white px-4 text-sm text-gray-500 absolute">Or continue with</span>
+            <span className="bg-white px-4 text-sm text-gray-500 absolute">{t('or_continue_with')}</span>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -259,7 +277,7 @@ const Login = () => {
             to="/admin/login"
             className="text-xs font-bold text-slate-400 hover:text-orange-500 uppercase tracking-widest transition-colors"
           >
-            Administrator Login
+            {t('admin_login')}
           </Link>
         </div>
       </div>

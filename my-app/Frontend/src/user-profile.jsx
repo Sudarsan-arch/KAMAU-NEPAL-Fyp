@@ -5,8 +5,10 @@ import { Camera, Mail, Phone, MapPin, CheckCircle2, ArrowLeft, AlertCircle, Menu
 import Sidebar from './components/Sidebar'
 import Logo from './Logo'
 import OptimizedImage from './components/OptimizedImage'
+import { useTranslation } from "./utils/LanguageContext"
 
 export default function UserProfile() {
+  const { t, language: currentLanguage, changeLanguage } = useTranslation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profileImage, setProfileImage] = useState(null)
   const navigate = useNavigate()
@@ -47,7 +49,6 @@ export default function UserProfile() {
   const [strengthScore, setStrengthScore] = useState(0)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light')
-  const [language, setLanguage] = useState(localStorage.getItem('language') || 'en')
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -58,10 +59,7 @@ export default function UserProfile() {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  const handleLanguageChange = (lang) => {
-    setLanguage(lang)
-    localStorage.setItem('language', lang)
-  }
+
 
   // Reusable function to get address from OSM Nominatim
   const getAddressFromCoordinates = async (lat, lng) => {
@@ -625,7 +623,7 @@ export default function UserProfile() {
                       : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
                     }`}
                 >
-                  Profile Details
+                  {t('profile_details')}
                 </button>
                 <button
                   onClick={() => setActiveTab("security")}
@@ -634,7 +632,7 @@ export default function UserProfile() {
                       : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
                     }`}
                 >
-                  Passwords & Security
+                  {t('security')}
                 </button>
                 <button
                   onClick={() => setActiveTab("settings")}
@@ -643,7 +641,7 @@ export default function UserProfile() {
                       : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
                     }`}
                 >
-                  Appearance
+                  {t('appearance')}
                 </button>
               </div>
 
@@ -686,12 +684,12 @@ export default function UserProfile() {
 
                   {/* Personal Information */}
                   <div className="space-y-5">
-                    <h2 className="text-xl font-bold text-slate-900">Personal Information</h2>
+                    <h2 className="text-xl font-bold text-slate-900">{t('personal_info')}</h2>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="firstName" className="block text-sm font-semibold text-slate-700 mb-2">
-                          First Name
+                          {t('first_name')}
                         </label>
                         <input
                           id="firstName"
@@ -714,7 +712,7 @@ export default function UserProfile() {
 
                       <div>
                         <label htmlFor="lastName" className="block text-sm font-semibold text-slate-700 mb-2">
-                          Last Name
+                          {t('last_name')}
                         </label>
                         <input
                           id="lastName"
@@ -738,7 +736,7 @@ export default function UserProfile() {
 
                     <div>
                       <label htmlFor="username" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Username
+                        {t('username')}
                       </label>
                       <input
                         id="username"
@@ -754,12 +752,12 @@ export default function UserProfile() {
 
                   {/* Contact Information */}
                   <div className="space-y-5">
-                    <h2 className="text-xl font-bold text-slate-900">Contact Information</h2>
+                    <h2 className="text-xl font-bold text-slate-900">{t('contact_info')}</h2>
 
                     <div>
                       <label htmlFor="email" className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
                         <Mail size={16} className="text-teal-600" />
-                        Email <span className="text-red-500">*</span>
+                        {t('email')} <span className="text-red-500">*</span>
                       </label>
                       <input
                         id="email"
@@ -783,7 +781,7 @@ export default function UserProfile() {
                     <div>
                       <label htmlFor="phone" className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
                         <Phone size={16} className="text-teal-600" />
-                        Phone Number
+                        {t('phone')}
                       </label>
                       <input
                         id="phone"
@@ -807,7 +805,7 @@ export default function UserProfile() {
                     <div>
                       <label htmlFor="location" className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
                         <MapPin size={16} className="text-teal-600" />
-                        Location {isLocationEnabled ? "(Real-time)" : "(Manual Address)"}
+                        {t('location')} {isLocationEnabled ? "(Real-time)" : "(Manual Address)"}
                       </label>
                       <div className="flex flex-col gap-3">
                         <input
@@ -856,10 +854,10 @@ export default function UserProfile() {
 
                   {/* User Analytics */}
                   <div className="space-y-4 pb-8 border-b border-slate-200">
-                    <h2 className="text-xl font-bold text-slate-900">User Analytics</h2>
+                    <h2 className="text-xl font-bold text-slate-900">{t('analytics')}</h2>
                     <div className="bg-slate-100 rounded-xl p-6">
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-600 font-semibold">Total Bookings</span>
+                        <span className="text-slate-600 font-semibold">{t('total_bookings')}</span>
                         <span className="text-4xl font-bold text-teal-600">{formData.totalBookings || 0}</span>
                       </div>
                     </div>
@@ -867,7 +865,7 @@ export default function UserProfile() {
 
                   {/* Account Verification */}
                   <div className="space-y-4 pb-8">
-                    <h2 className="text-xl font-bold text-slate-900">Account Verification</h2>
+                    <h2 className="text-xl font-bold text-slate-900">{t('verification')}</h2>
                     <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
                       <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0" />
                       <span className="text-green-700 font-semibold">Email Verified</span>
@@ -881,13 +879,13 @@ export default function UserProfile() {
                       disabled={isLoading}
                       className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-bold py-3 px-6 rounded-xl transition-all transform hover:-translate-y-0.5 shadow-md"
                     >
-                      {isLoading ? "Saving..." : "Save Changes"}
+                      {isLoading ? t('loading') : t('save')}
                     </button>
                     <button
                       onClick={handleCancel}
                       className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-6 rounded-xl transition-all transform hover:-translate-y-0.5"
                     >
-                      Cancel
+                      {t('cancel')}
                     </button>
                   </div>
                 </div>
@@ -1102,40 +1100,40 @@ export default function UserProfile() {
 
                     <div className="mt-8 pt-8 border-t border-slate-100">
                       <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                         <Globe size={24} className="text-teal-600" /> Platform Language
+                         <Globe size={24} className="text-teal-600" /> {t('language_title')}
                       </h2>
 
                       <div className="flex flex-col sm:flex-row gap-4">
                          <button 
-                           onClick={() => handleLanguageChange('en')}
-                           className={`flex-1 flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${language === 'en' ? 'border-teal-600 bg-white shadow-sm' : 'border-slate-100 bg-white/50 hover:bg-white'}`}
+                           onClick={() => changeLanguage('en')}
+                           className={`flex-1 flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${currentLanguage === 'en' ? 'border-teal-600 bg-white shadow-sm' : 'border-slate-100 bg-white/50 hover:bg-white'}`}
                          >
                             <div className="flex items-center gap-3">
-                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${language === 'en' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${currentLanguage === 'en' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
                                   EN
                                </div>
                                <div className="text-left">
                                   <p className="font-bold text-slate-900">English</p>
-                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Global Standard</p>
-                               </div>
+                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t('global_standard')}</p>
+                                </div>
                             </div>
-                            {language === 'en' && <CheckCircle2 size={20} className="text-teal-600" />}
+                            {currentLanguage === 'en' && <CheckCircle2 size={20} className="text-teal-600" />}
                          </button>
 
                          <button 
-                           onClick={() => handleLanguageChange('ne')}
-                           className={`flex-1 flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${language === 'ne' ? 'border-teal-600 bg-white shadow-sm' : 'border-slate-100 bg-white/50 hover:bg-white'}`}
+                           onClick={() => changeLanguage('ne')}
+                           className={`flex-1 flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${currentLanguage === 'ne' ? 'border-teal-600 bg-white shadow-sm' : 'border-slate-100 bg-white/50 hover:bg-white'}`}
                          >
                             <div className="flex items-center gap-3">
-                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${language === 'ne' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${currentLanguage === 'ne' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
                                   NE
                                </div>
                                <div className="text-left">
                                   <p className="font-bold text-slate-900">नेपाली</p>
-                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Local Language</p>
+                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t('local_language')}</p>
                                </div>
                             </div>
-                            {language === 'ne' && <CheckCircle2 size={20} className="text-teal-600" />}
+                            {currentLanguage === 'ne' && <CheckCircle2 size={20} className="text-teal-600" />}
                          </button>
                       </div>
                     </div>

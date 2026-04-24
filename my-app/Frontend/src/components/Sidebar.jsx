@@ -4,10 +4,12 @@ import {
     Home, Calendar, MessageSquare, TrendingUp, CreditCard,
     Settings, HelpCircle, Briefcase, LogOut
 } from 'lucide-react';
+import { useTranslation } from '../utils/LanguageContext';
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { t } = useTranslation();
     const [professionalProfile, setProfessionalProfile] = React.useState(null);
     const [checkingProfessional, setCheckingProfessional] = React.useState(true);
 
@@ -54,16 +56,16 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
     const activeTab = getActiveTab();
 
     const menuItems = [
-        { id: "overview", label: "Dashboard", icon: Home, route: "/dashboard" },
-        { id: "bookings", label: "My Bookings", icon: Calendar, route: "/my-bookings" },
-        { id: "messages", label: "Messages", icon: MessageSquare, route: "/messages", badge: 3 },
-        { id: "history", label: "Services History", icon: TrendingUp, route: "/services-history" },
-        { id: "payments", label: "Payments", icon: CreditCard },
+        { id: "overview", label: t('dashboard'), icon: Home, route: "/dashboard" },
+        { id: "bookings", label: t('my_bookings'), icon: Calendar, route: "/my-bookings" },
+        { id: "messages", label: t('messages'), icon: MessageSquare, route: "/messages", badge: 3 },
+        { id: "history", label: t('history'), icon: TrendingUp, route: "/services-history" },
+        { id: "payments", label: t('payments'), icon: CreditCard },
     ];
 
     const adminItems = [
-        { id: "settings", label: "Settings", icon: Settings, route: "/user-profile" },
-        { id: "help", label: "Help Center", icon: HelpCircle, route: "/help" },
+        { id: "settings", label: t('settings'), icon: Settings, route: "/user-profile" },
+        { id: "help", label: t('help'), icon: HelpCircle, route: "/help" },
     ];
 
     return (
@@ -104,7 +106,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
                     </div>
 
                     <div className="mt-6 pt-6 border-t border-gray-100">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-2">Support & Admin</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-2">{t('support_admin')}</p>
                         {adminItems.map((item) => (
                             <button
                                 key={item.id}
@@ -132,7 +134,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
                                 className="w-full flex items-center gap-3 px-4 py-3 text-orange-600 bg-orange-50 rounded-xl transition font-bold shadow-sm"
                             >
                                 <Briefcase size={20} />
-                                <span className="text-sm">Professional Role</span>
+                                <span className="text-sm">{t('pro_role')}</span>
                             </button>
                         ) : professionalProfile && professionalProfile.verificationStatus === 'pending' ? (
                             <button
@@ -143,7 +145,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
                                 className="w-full flex items-center gap-3 px-4 py-3 text-teal-600 hover:bg-teal-50 rounded-xl transition font-semibold"
                             >
                                 <Briefcase size={20} />
-                                <span className="text-sm">Application Pending</span>
+                                <span className="text-sm">{t('pending_app')}</span>
                             </button>
                         ) : !checkingProfessional && (
                             <button
@@ -154,7 +156,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
                                 className="w-full flex items-center gap-3 px-4 py-3 text-teal-600 hover:bg-teal-50 rounded-xl transition font-semibold"
                             >
                                 <Briefcase size={20} />
-                                <span className="text-sm">{professionalProfile && professionalProfile.verificationStatus === 'rejected' ? 'Re-apply as Professional' : 'Register as Professional'}</span>
+                                <span className="text-sm">{professionalProfile && professionalProfile.verificationStatus === 'rejected' ? t('reapply_pro') : t('reg_pro')}</span>
                             </button>
                         )}
                         <button
@@ -162,7 +164,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
                             className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition font-semibold"
                         >
                             <LogOut size={20} />
-                            <span className="text-sm">Log Out</span>
+                            <span className="text-sm">{t('logout')}</span>
                         </button>
                     </div>
                 </nav>

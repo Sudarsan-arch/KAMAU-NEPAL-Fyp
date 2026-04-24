@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 import { useGoogleLogin } from '@react-oauth/google';
+import { useTranslation } from '../utils/LanguageContext';
 
 const SignupForm = () => {
   const [formData, setFormData] = useState({
@@ -27,6 +28,7 @@ const SignupForm = () => {
   const [strengthScore, setStrengthScore] = useState(0);
 
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const checkPasswordStrength = (pass) => {
     const length = pass.length >= 8;
@@ -184,9 +186,9 @@ const SignupForm = () => {
                 </div>
                 <span className="text-xl font-bold text-teal-900">Kamau Nepal</span>
               </div>
-              <h1 className="text-3xl font-bold text-teal-900">Create Your Account</h1>
+              <h1 className="text-3xl font-bold text-teal-900">{t('create_your_account')}</h1>
               <p className="mt-2 text-gray-600">
-                Join our community and start your professional journey today
+                {t('join_community')}
               </p>
             </div>
 
@@ -194,7 +196,7 @@ const SignupForm = () => {
               {/* Name fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">First Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('first_name')}</label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <input
@@ -202,14 +204,14 @@ const SignupForm = () => {
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleChange}
-                      placeholder="Enter first name"
+                      placeholder={t('enter_first_name')}
                       required
                       className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Last Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('last_name')}</label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <input
@@ -217,7 +219,7 @@ const SignupForm = () => {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleChange}
-                      placeholder="Enter last name"
+                      placeholder={t('enter_last_name')}
                       required
                       className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
                     />
@@ -227,7 +229,7 @@ const SignupForm = () => {
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('email')}</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                   <input
@@ -235,7 +237,7 @@ const SignupForm = () => {
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    placeholder="Enter your email"
+                    placeholder={t('enter_email')}
                     required
                     className={`w-full pl-10 pr-4 py-2.5 border rounded-lg outline-none transition ${
                       emailError ? 'border-red-500 focus:ring-2 focus:ring-red-500' : 'border-gray-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500'
@@ -250,7 +252,7 @@ const SignupForm = () => {
               {/* Passwords */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('password')}</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <input
@@ -258,7 +260,7 @@ const SignupForm = () => {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      placeholder="Create password"
+                      placeholder={t('create_password')}
                       required
                       className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
                     />
@@ -285,26 +287,26 @@ const SignupForm = () => {
                       <p className={`mt-1 font-medium ${
                         strengthScore < 3 ? 'text-red-500' : strengthScore < 5 ? 'text-yellow-600' : 'text-green-600'
                       }`}>
-                        {strengthScore < 3 && 'Weak password'}
-                        {strengthScore >= 3 && strengthScore < 5 && 'Fair password'}
-                        {strengthScore === 5 && 'Strong password'}
+                        {strengthScore < 3 && t('weak_password')}
+                        {strengthScore >= 3 && strengthScore < 5 && t('fair_password')}
+                        {strengthScore === 5 && t('strong_password')}
                       </p>
                       {strengthScore < 5 && (
                         <ul className="mt-2 space-y-1 text-gray-500 font-medium">
                           <li className={`flex items-center gap-1 ${passwordStrength.length ? "text-green-600" : ""}`}>
-                            {passwordStrength.length ? "✓" : "○"} At least 8 characters
+                            {passwordStrength.length ? "✓" : "○"} {t('password_req_1')}
                           </li>
                           <li className={`flex items-center gap-1 ${passwordStrength.upper ? "text-green-600" : ""}`}>
-                            {passwordStrength.upper ? "✓" : "○"} Uppercase letter
+                            {passwordStrength.upper ? "✓" : "○"} {t('password_req_2')}
                           </li>
                           <li className={`flex items-center gap-1 ${passwordStrength.lower ? "text-green-600" : ""}`}>
-                            {passwordStrength.lower ? "✓" : "○"} Lowercase letter
+                            {passwordStrength.lower ? "✓" : "○"} {t('password_req_3')}
                           </li>
                           <li className={`flex items-center gap-1 ${passwordStrength.number ? "text-green-600" : ""}`}>
-                            {passwordStrength.number ? "✓" : "○"} Number
+                            {passwordStrength.number ? "✓" : "○"} {t('password_req_4')}
                           </li>
                           <li className={`flex items-center gap-1 ${passwordStrength.special ? "text-green-600" : ""}`}>
-                            {passwordStrength.special ? "✓" : "○"} Special character
+                            {passwordStrength.special ? "✓" : "○"} {t('password_req_5')}
                           </li>
                         </ul>
                       )}
@@ -312,7 +314,7 @@ const SignupForm = () => {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('confirm_password')}</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <input
@@ -320,7 +322,7 @@ const SignupForm = () => {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      placeholder="Confirm password"
+                      placeholder={t('confirm_password_placeholder')}
                       required
                       className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
                     />
@@ -330,13 +332,13 @@ const SignupForm = () => {
 
               {/* Address */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('location')}</label>
                 <input
                   type="text"
                   name="address"
                   value={formData.address}
                   onChange={handleChange}
-                  placeholder="Enter your address"
+                  placeholder={t('enter_address')}
                   required
                   className="w-full pl-4 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
                 />
@@ -354,13 +356,13 @@ const SignupForm = () => {
                   className="h-4 w-4 mt-1 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                 />
                 <label htmlFor="agreeToTerms" className="ml-2 text-sm text-gray-600">
-                  I agree to the{' '}
+                  {t('agree_to_terms_1')}{' '}
                   <Link to="/terms" className="text-teal-600 font-medium hover:text-teal-700">
-                    Terms of Service
+                    {t('terms_of_service')}
                   </Link>{' '}
-                  and{' '}
+                  {t('agree_to_terms_2')}{' '}
                   <Link to="/privacy" className="text-teal-600 font-medium hover:text-teal-700">
-                    Privacy Policy
+                    {t('privacy_policy')}
                   </Link>
                 </label>
               </div>
@@ -369,7 +371,7 @@ const SignupForm = () => {
                 type="submit"
                 className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-4 rounded-lg transition flex items-center justify-center gap-2 shadow-lg shadow-teal-600/20 active:scale-[0.98]"
               >
-                Create Account
+                {t('create_account')}
                 <ArrowRight size={18} />
               </button>
             </form>
@@ -378,7 +380,7 @@ const SignupForm = () => {
             <div className="mt-8">
               <div className="relative flex items-center justify-center mb-6">
                 <div className="border-t border-gray-200 w-full"></div>
-                <span className="bg-white px-4 text-sm text-gray-500 absolute">Or continue with</span>
+                <span className="bg-white px-4 text-sm text-gray-500 absolute">{t('or_continue_with')}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -422,9 +424,9 @@ const SignupForm = () => {
             </div>
 
             <div className="mt-8 text-center text-sm">
-              Already have an account?{' '}
+              {t('already_have_account')}{' '}
               <Link to="/login" className="text-teal-600 font-medium hover:text-teal-700">
-                Sign in
+                {t('sign_in')}
               </Link>
             </div>
           </div>
@@ -439,9 +441,9 @@ const SignupForm = () => {
             />
             <div className="absolute inset-0 bg-teal-900/40 backdrop-blur-[2px]"></div>
             <div className="relative z-10 text-center text-white p-12">
-              <h2 className="text-4xl font-bold mb-6 drop-shadow-lg">Launch Your Career</h2>
+              <h2 className="text-4xl font-bold mb-6 drop-shadow-lg">{t('launch_career')}</h2>
               <p className="text-xl opacity-95 mb-8 max-w-md mx-auto drop-shadow-md">
-                Join thousands of professionals who found their dream jobs through our platform
+                {t('launch_desc')}
               </p>
               <div className="flex justify-center gap-4 mt-12">
                 <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium border border-white/30">10k+ Jobs</div>

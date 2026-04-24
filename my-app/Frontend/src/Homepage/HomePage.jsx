@@ -9,6 +9,7 @@ import Logo from '../Logo';
 import axios from 'axios';
 import Button from '../components/Button';
 import OptimizedImage from '../components/OptimizedImage';
+import { useTranslation } from '../utils/LanguageContext';
 
 
 
@@ -21,6 +22,7 @@ const HomePage = () => {
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const userName = localStorage.getItem('userName') || 'Professional User';
   const userProfileImage = localStorage.getItem('userProfileImage');
@@ -238,18 +240,18 @@ const HomePage = () => {
                       </div>
                       <div className="text-left">
                         <div className="text-xs font-bold text-slate-900 leading-none">{userName}</div>
-                        <div className="text-[11px] text-slate-400">Dashboard</div>
+                        <div className="text-[11px] text-slate-400">{t('dashboard')}</div>
                       </div>
                     </button>
 
                     <Button variant="outline" size="sm" onClick={handleLogout} className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300">
-                      Log Out
+                      {t('logout')}
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Log In</Button>
-                    <Button variant="outline" size="sm" onClick={() => navigate('/signup')}>Sign Up</Button>
+                    <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>{t('login')}</Button>
+                    <Button variant="outline" size="sm" onClick={() => navigate('/signup')}>{t('signup')}</Button>
                   </>
                 )}
               </div>
@@ -281,8 +283,8 @@ const HomePage = () => {
                 </>
               ) : (
                 <>
-                  <Button className="w-full" variant="outline" onClick={() => navigate('/login')}>Log In</Button>
-                  <Button className="w-full" onClick={() => navigate('/signup')}>Sign Up</Button>
+                  <Button className="w-full" variant="outline" onClick={() => navigate('/login')}>{t('login')}</Button>
+                  <Button className="w-full" onClick={() => navigate('/signup')}>{t('signup')}</Button>
                 </>
               )}
             </div>
@@ -299,42 +301,42 @@ const HomePage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
               <div className="lg:col-span-7">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-100 text-teal-700 text-sm font-bold mb-6">
-                  <Zap size={14} className="fill-teal-700" /> Trusted by 10,000+ Professionals
+                  <Zap size={14} className="fill-teal-700" /> {t('trusted_by')}
                 </div>
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 leading-[1.1] mb-6 tracking-tight">
-                  Find Expert <span className="text-teal-600">Employees</span> & Professionals in Nepal
+                  {t('hero_title_1')} <span className="text-teal-600">{t('hero_title_2')}</span>{t('hero_title_3')}
                 </h1>
                 <p className="text-base text-slate-600 mb-10 max-w-2xl leading-relaxed">
-                  Whether you need a master carpenter, a software developer, or a reliable housekeeper, Kamau Nepal connects you with verified talent right in your neighborhood.
+                  {t('hero_desc')}
                 </p>
                 <div className="relative group max-w-2xl mb-12">
                   <div className="absolute inset-0 bg-teal-600/5 rounded-[22px] blur-xl group-focus-within:bg-teal-600/10 transition-all" />
                   <div className="relative flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-[20px] shadow-lg border border-slate-200">
                     <div className="flex-grow relative">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                      <input type="text" placeholder="Search by skill (e.g. Electrician, Designer)" className="w-full bg-transparent py-4 pl-12 pr-4 text-slate-800 focus:outline-none font-medium" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                      <input type="text" placeholder={t('search_placeholder')} className="w-full bg-transparent py-4 pl-12 pr-4 text-slate-800 focus:outline-none font-medium" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </div>
                     <Button 
                       variant="primary" 
                       className="sm:px-10 rounded-2xl group"
                       onClick={() => navigate('/explore-jobs', { state: { searchQuery } })}
                     >
-                      Search <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                      {t('search')} <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
                     </Button>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
                     <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center text-teal-700 mb-4"><ShieldCheck size={20} /></div>
-                    <h3 className="font-bold text-slate-900 mb-1">Looking for Work?</h3>
+                    <h3 className="font-bold text-slate-900 mb-1">{t('looking_for_work')}</h3>
                     <p className="text-sm text-slate-500 mb-4">Set up your profile and reach top companies searching for your skills.</p>
-                    <Button variant="secondary" size="sm" className="w-full" onClick={() => navigate('/explore-jobs')}>Explore Professionals </Button>
+                    <Button variant="secondary" size="sm" className="w-full" onClick={() => navigate('/explore-jobs')}>{t('explore_pros')} </Button>
                   </div>
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
                     <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center text-orange-700 mb-4"><UserCircle size={20} /></div>
-                    <h3 className="font-bold text-slate-900 mb-1">Need to Hire?</h3>
+                    <h3 className="font-bold text-slate-900 mb-1">{t('need_to_hire')}</h3>
                     <p className="text-sm text-slate-500 mb-4">Find verified service providers with high ratings and local expertise.</p>
-                    <Button variant="primary" size="sm" className="w-full" onClick={() => navigate('/explore-jobs')}>Start Hiring</Button>
+                    <Button variant="primary" size="sm" className="w-full" onClick={() => navigate('/explore-jobs')}>{t('start_hiring')}</Button>
                   </div>
                 </div>
               </div>
@@ -349,9 +351,9 @@ const HomePage = () => {
                       <div>
                         <div className="flex items-center gap-1.5 mb-1 text-emerald-600">
                           <CheckCircle2 size={14} className="fill-emerald-100" />
-                          <p className="text-[10px] font-black uppercase tracking-wider">Verified Talent</p>
+                          <p className="text-[10px] font-black uppercase tracking-wider">{t('verified_talent')}</p>
                         </div>
-                        <p className="text-lg font-black text-slate-900">100% Guaranteed</p>
+                        <p className="text-lg font-black text-slate-900">{t('guaranteed')}</p>
                       </div>
                     </div>
                   </div>
@@ -364,8 +366,8 @@ const HomePage = () => {
         {/* Services Part */}
         <section className="py-24 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-2xl md:text-3xl font-black text-orange-500 mb-4 tracking-tight">What do you need today?</h2>
-            <p className="text-slate-500 max-w-2xl mx-auto font-medium mb-16">Browse through our most popular service categories and find exactly who you're looking for.</p>
+            <h2 className="text-2xl md:text-3xl font-black text-orange-500 mb-4 tracking-tight">{t('what_need_today')}</h2>
+            <p className="text-slate-500 max-w-2xl mx-auto font-medium mb-16">{t('popular_subtitle')}</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
               {loadingCategories ? (
                 [...Array(5)].map((_, i) => (
@@ -386,7 +388,7 @@ const HomePage = () => {
                       )}
                     </div>
                     <p className="font-semibold text-slate-800 text-center">{category.name}</p>
-                    <span className="text-[10px] uppercase tracking-widest text-teal-600 font-bold mt-1">Available Now</span>
+                    <span className="text-[10px] uppercase tracking-widest text-teal-600 font-bold mt-1">{t('available_now')}</span>
                   </button>
                 ))
               ) : (
@@ -401,15 +403,15 @@ const HomePage = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
               <div>
-                <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-4 tracking-tight">Featured Professionals</h2>
-                <p className="text-slate-500 font-medium">Top-rated individuals verified by our team for excellence.</p>
+                <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-4 tracking-tight">{t('featured_pros')}</h2>
+                <p className="text-slate-500 font-medium">{t('featured_subtitle')}</p>
               </div>
               <Button 
                 variant="outline" 
                 className="hidden md:flex gap-2"
                 onClick={() => navigate('/explore-jobs')}
               >
-                View All Experts <MoreHorizontal size={18} />
+                {t('view_all_experts')} <MoreHorizontal size={18} />
               </Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -446,7 +448,7 @@ const HomePage = () => {
                       </div>
                       <div className="flex items-center gap-2 text-sm font-medium text-slate-500"><MapPin size={16} className="text-teal-500" /> {p.location}</div>
                       <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-black text-emerald-600 w-fit">
-                        <CheckCircle2 size={14} className="text-emerald-500" /> {p.completedJobs} {p.completedJobs === 1 ? 'Service' : 'Services'} Done
+                        <CheckCircle2 size={14} className="text-emerald-500" /> {p.completedJobs} {p.completedJobs === 1 ? t('service') : t('services_done')}
                       </div>
                       <div className="text-base font-black text-slate-900">{p.hourlyRate}</div>
                     </div>
@@ -455,7 +457,7 @@ const HomePage = () => {
                       className="w-full mt-auto rounded-2xl"
                       onClick={() => navigate(`/professional/${p._id}`)}
                     >
-                      Book Now
+                      {t('book_now')}
                     </Button>
                   </div>
                 ))

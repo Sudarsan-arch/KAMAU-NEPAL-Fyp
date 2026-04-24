@@ -22,9 +22,11 @@ import { addTakenService } from "../services/storage";
 import { createBooking, getUserBookings } from "../bookingService";
 import NotificationsMenu from "../components/NotificationsMenu";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { useTranslation } from "../utils/LanguageContext";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showHireForm, setShowHireForm] = useState(false);
@@ -187,28 +189,28 @@ const Dashboard = () => {
 
   const stats = [
     {
-      label: "Services Taken",
+      label: t('history'),
       value: bookingStats.servicesTaken.toString(),
       change: bookingStats.changeTaken,
       icon: Briefcase,
       color: "bg-blue-500",
     },
     { 
-      label: "Providers Met", 
+      label: t('providers_met'), 
       value: bookingStats.providersMet.toString(), 
       change: bookingStats.changeMet, 
       icon: Users, 
       color: "bg-green-500" 
     },
     {
-      label: "Scheduled",
+      label: t('scheduled'),
       value: bookingStats.scheduled.toString(),
       change: bookingStats.changeScheduled,
       icon: Calendar,
       color: "bg-purple-500",
     },
     { 
-      label: "Total Spent", 
+      label: t('total_spent'), 
       value: `रू ${bookingStats.totalSpent.toLocaleString()}`, 
       change: bookingStats.changeSpent, 
       icon: DollarSign, 
@@ -269,8 +271,8 @@ const Dashboard = () => {
 
   const handleLogout = () => {
     openConfirm({
-      title: "Sign Out",
-      message: "Are you sure you want to log out? You will need to sign in again to access your dashboard and bookings.",
+      title: t('logout'),
+      message: t('logout_confirm') || "Are you sure you want to log out?",
       onConfirm: () => {
         localStorage.clear(); // Clear everything for a clean logout
         navigate("/");
@@ -480,9 +482,9 @@ const Dashboard = () => {
                       </div>
                     </div>
                     <div className="flex-1">
-                      <h2 className="text-2xl font-bold text-gray-900 mb-1">Service Provider Profile</h2>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-1">{t('service_provider_profile')}</h2>
                       <p className="text-gray-600 mb-4 font-medium">
-                        Professional {selectedJob.title} with Top Rating
+                        Professional {selectedJob.title}
                       </p>
                       <div className="flex items-center gap-2 mb-4">
                         <div className="flex items-center gap-1">
@@ -495,7 +497,7 @@ const Dashboard = () => {
                           ))}
                         </div>
                         <span className="font-semibold text-gray-900">{selectedJob.rating}</span>
-                        <span className="text-gray-500 text-sm">(120+ reviews)</span>
+                        <span className="text-gray-500 text-sm">(120+ {t('reviews')})</span>
                       </div>
                     </div>
                   </div>
@@ -504,7 +506,7 @@ const Dashboard = () => {
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <DollarSign size={20} className="text-orange-600" />
-                        <h3 className="font-semibold text-gray-900">Per Hour Rate</h3>
+                        <h3 className="font-semibold text-gray-900">{t('per_hour_rate')}</h3>
                       </div>
                       <p className="text-2xl font-bold text-gray-900">{selectedJob.hourlyRate}</p>
                       <p className="text-xs text-gray-500 mt-1 italic">Flexible negotiation available</p>
@@ -513,7 +515,7 @@ const Dashboard = () => {
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <MapPin size={20} className="text-orange-600" />
-                        <h3 className="font-semibold text-gray-900">Coverage Area</h3>
+                        <h3 className="font-semibold text-gray-900">{t('coverage_area')}</h3>
                       </div>
                       <p className="text-lg font-semibold text-gray-900">{selectedJob.location}</p>
                       <p className="text-xs text-gray-500 mt-1">{selectedJob.type} service</p>
@@ -528,7 +530,7 @@ const Dashboard = () => {
                         <Clock size={24} className="text-blue-600" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 mb-2">Availability</h3>
+                        <h3 className="font-semibold text-gray-900 mb-2">{t('availability')}</h3>
                         <p className="text-xl font-bold text-gray-900 mb-1">{selectedJob.schedule}</p>
                         <div className="space-y-1 text-sm text-gray-600">
                           <p>• Available immediately</p>
@@ -545,7 +547,7 @@ const Dashboard = () => {
                         <Briefcase size={24} className="text-purple-600" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 mb-2">Experience</h3>
+                        <h3 className="font-semibold text-gray-900 mb-2">{t('experience')}</h3>
                         <p className="text-xl font-bold text-gray-900 mb-1">{selectedJob.experience}</p>
                         <div className="space-y-1 text-sm text-gray-600">
                           <p>• Proven track record</p>
@@ -558,7 +560,7 @@ const Dashboard = () => {
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">About the Service</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('about_service')}</h3>
                   <div className="space-y-3 text-gray-700 leading-relaxed">
                     <p>
                       Professional and reliable service provider in the {selectedJob.location} area.
@@ -574,14 +576,14 @@ const Dashboard = () => {
 
               <div className="space-y-6">
                 <div className="bg-white rounded-xl shadow-sm border border-orange-100 p-6 sticky top-24">
-                  <h3 className="font-semibold text-gray-900 mb-4">Quick Booking</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">{t('quick_booking')}</h3>
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Est. Cost</span>
+                      <span className="text-gray-600">{t('est_cost')}</span>
                       <span className="font-semibold text-gray-900">{selectedJob.hourlyRate}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Travel Fee</span>
+                      <span className="text-gray-600">{t('travel_fee')}</span>
                       <span className="font-semibold text-gray-900">रू 0.00</span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -596,14 +598,14 @@ const Dashboard = () => {
                       onClick={handleHireNowClick}
                       className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg transition transform active:scale-95 shadow-lg shadow-orange-200"
                     >
-                      Book Now
+                      {t('book_now')}
                     </button>
                     <button
                       onClick={handleMessageClick}
                       className="w-full py-3 border border-orange-600 text-orange-600 hover:bg-orange-50 font-semibold rounded-lg transition flex items-center justify-center gap-2"
                     >
                       <MessageSquare size={18} />
-                      Send Message
+                      {t('send_message')}
                     </button>
                     <button
                       onClick={handleServiceTaken}
@@ -613,24 +615,24 @@ const Dashboard = () => {
                         }`}
                     >
                       <CheckCircle size={18} />
-                      {selectedJob.status === "Service Taken" ? "Service Taken ✓" : "Mark Service Taken"}
+                      {selectedJob.status === "Service Taken" ? `${t('service_taken')} ✓` : t('mark_service_taken')}
                     </button>
                   </div>
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">Reliability Stats</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">{t('reliability_stats')}</h3>
                   <div className="space-y-4">
                     <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Response Time</p>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">{t('response_time')}</p>
                       <p className="text-lg font-bold text-gray-900">&lt; 2 hours</p>
                     </div>
                     <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Success Rate</p>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">{t('success_rate')}</p>
                       <p className="text-lg font-bold text-gray-900">98%</p>
                     </div>
                     <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Services Completed</p>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">{t('services_completed')}</p>
                       <p className="text-lg font-bold text-gray-900">45+</p>
                     </div>
                   </div>
@@ -645,8 +647,8 @@ const Dashboard = () => {
               <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto transform transition-all animate-in fade-in zoom-in duration-200">
                 <div className="sticky top-0 bg-gradient-to-r from-orange-600 to-orange-700 px-6 py-6 text-white flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold leading-tight">Hire {selectedJob.title}</h2>
-                    <p className="text-orange-100 text-xs mt-1">Booking for {selectedJob.location}</p>
+                    <h2 className="text-2xl font-bold leading-tight">{t('sign_in')} {selectedJob.title}</h2>
+                    <p className="text-orange-100 text-xs mt-1">{t('location')}: {selectedJob.location}</p>
                   </div>
                   <button onClick={() => setShowHireForm(false)} className="text-white hover:bg-white/20 rounded-lg p-2 transition">
                     <X size={24} />
@@ -875,14 +877,14 @@ const Dashboard = () => {
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Namaste, {user.name}</h1>
-              <p className="text-gray-500">Need a hand? Explore professional services in your area.</p>
+              <h1 className="text-3xl font-bold text-gray-900">{t('namaste')}, {user.name}</h1>
+              <p className="text-gray-500">{t('dashboard_subtitle')}</p>
             </div>
             {user.location !== "Not set" && (
               <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-100 rounded-xl text-orange-700 shadow-sm self-start md:self-auto">
                 <MapPin size={18} className="text-orange-600" />
                 <div className="text-left">
-                  <p className="text-[10px] font-bold uppercase tracking-wider leading-none mb-1">Your Location</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider leading-none mb-1">{t('your_location')}</p>
                   <p className="text-sm font-bold truncate max-w-[200px]">{user.location}</p>
                 </div>
               </div>
