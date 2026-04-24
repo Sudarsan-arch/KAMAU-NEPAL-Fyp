@@ -51,7 +51,22 @@ const ProfessionalMessages = () => {
 
     useEffect(() => {
         fetchConversations();
+        // Polling for new conversations/unread counts
+        const convInterval = setInterval(fetchConversations, 10000);
+        return () => clearInterval(convInterval);
     }, []);
+
+    useEffect(() => {
+        let threadInterval;
+        if (selectedContact) {
+            fetchThread(selectedContact._id);
+            // Polling for new messages in active thread
+            threadInterval = setInterval(() => fetchThread(selectedContact._id, true), 4000);
+        }
+        return () => {
+            if (threadInterval) clearInterval(threadInterval);
+        };
+    }, [selectedContact]);
 
     useEffect(() => {
         scrollToBottom();
@@ -75,19 +90,29 @@ const ProfessionalMessages = () => {
         }
     };
 
-    const fetchThread = async (userId) => {
+    const fetchThread = async (userId, isPolling = false) => {
         try {
-            setLoadingThread(true);
+            if (!isPolling) setLoadingThread(true);
             const response = await getMessageThread(userId);
             if (response.success) {
-                setThread(response.data);
-                // Refresh list for read counts
-                fetchConversations();
+                // Only update state if message count changed to avoid unnecessary re-renders
+                setThread(prev => {
+                    if (JSON.stringify(prev) !== JSON.stringify(response.data)) {
+                        return response.data;
+                    }
+                    return prev;
+                });
+                
+                // If there are unread messages, refresh conversations to update sidebar counts
+                const hasUnread = response.data.some(m => !m.isRead && m.receiver._id === currentUserId);
+                if (hasUnread) {
+                    fetchConversations();
+                }
             }
         } catch (error) {
-            console.error('Error fetching thread:', error);
+            if (!isPolling) console.error('Error fetching thread:', error);
         } finally {
-            setLoadingThread(false);
+            if (!isPolling) setLoadingThread(false);
         }
     };
 
@@ -119,7 +144,7 @@ const ProfessionalMessages = () => {
                     createdAt: new Date().toISOString(),
                     isRead: false
                 };
-                setThread([...thread, tempMsg]);
+                setThread(prev => [...prev, tempMsg]);
                 setNewMessage('');
                 fetchConversations();
             }
@@ -158,7 +183,7 @@ const ProfessionalMessages = () => {
                         createdAt: new Date().toISOString(),
                         isRead: false
                     };
-                    setThread([...thread, tempMsg]);
+                    setThread(prev => [...prev, tempMsg]);
                     fetchConversations();
                 }
             }
@@ -362,7 +387,8 @@ const ProfessionalMessages = () => {
                                 <div className="flex justify-center py-20"><Loader2 className="animate-spin text-teal-500" /></div>
                             ) : (
                                 thread.map((msg, i) => {
-                                    const isMe = msg.sender._id === currentUserId;
+                                    const senderId = msg.sender?._id || msg.sender;
+                                    const isMe = senderId && currentUserId && String(senderId) === String(currentUserId);
                                     return (
                                         <div key={msg._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                                             <div className={`max-w-[80%] flex items-end gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>

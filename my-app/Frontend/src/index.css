@@ -82,3 +82,58 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #0f766e;
 }
+
+/* Dark Mode Support */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #020617;
+  color: #f8fafc;
+}
+
+.dark .bg-white {
+  background-color: #0f172a !important;
+}
+
+.dark .bg-gray-50, .dark .bg-slate-50 {
+  background-color: #020617 !important;
+}
+
+.dark .text-gray-900, .dark .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.dark .text-gray-600, .dark .text-slate-600, .dark .text-gray-500, .dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .border-gray-200, .dark .border-slate-200, .dark .border-gray-100, .dark .border-slate-100 {
+  border-color: #1e293b !important;
+}
+
+.dark .shadow-sm, .dark .shadow-md, .dark .shadow-lg {
+  shadow: none;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.5);
+}
+
+.dark input, .dark textarea, .dark select {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+.dark .hover\:bg-gray-50:hover, .dark .hover\:bg-slate-50:hover {
+  background-color: #1e293b !important;
+}
+
+.dark .bg-orange-50, .dark .bg-teal-50 {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.dark nav, .dark aside, .dark header {
+  background-color: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(12px);
+}

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Menu, X, Search, Star, MapPin, CheckCircle2,
   MoreHorizontal, Twitter, Linkedin, Github,
-  Heart, Zap, ShieldCheck, ArrowRight, Briefcase, UserCircle, Clock
+  Heart, Zap, ShieldCheck, ArrowRight, UserCircle
 } from 'lucide-react';
 import Logo from '../Logo';
 import axios from 'axios';
@@ -241,15 +241,7 @@ const HomePage = () => {
                         <div className="text-[11px] text-slate-400">Dashboard</div>
                       </div>
                     </button>
-                    {professionalStatus === 'verified' ? (
-                      <Button variant="secondary" size="sm" className="gap-2" onClick={() => navigate('/professional-dashboard')}>
-                        <Briefcase size={16} /> Professional Role
-                      </Button>
-                    ) : professionalStatus === 'pending' ? (
-                      <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/professional-registration')}>
-                        <Clock size={16} /> Pending Verification
-                      </Button>
-                    ) : null}
+
                     <Button variant="outline" size="sm" onClick={handleLogout} className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300">
                       Log Out
                     </Button>
@@ -282,15 +274,7 @@ const HomePage = () => {
               {isLoggedIn ? (
                 <>
                   <Button className="w-full" variant="secondary" onClick={() => { navigate('/dashboard'); setMobileMenuOpen(false); }}>User Dashboard</Button>
-                  {professionalStatus === 'verified' ? (
-                    <Button className="w-full" variant="secondary" onClick={() => { navigate('/professional-dashboard'); setMobileMenuOpen(false); }}>
-                       <Briefcase size={16} className="mr-2" /> Professional Role
-                    </Button>
-                  ) : professionalStatus === 'pending' ? (
-                    <Button className="w-full" variant="outline" onClick={() => { navigate('/professional-registration'); setMobileMenuOpen(false); }}>
-                       <Clock size={16} className="mr-2" /> Pending Verification
-                    </Button>
-                  ) : null}
+
                   <Button className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300" variant="outline" onClick={() => { handleLogout(); setMobileMenuOpen(false); }}>
                     Log Out
                   </Button>

@@ -6,7 +6,7 @@ import axios from 'axios';
 import {
   X, Menu, Search, Bell, Zap, Compass, Target, Orbit, Eye,
   Power, SwitchCamera, Cpu, Activity, ChevronRight,
-  MessageSquare, DollarSign, User, Mail, Phone, MapPin, UserCircle, ShieldCheck
+  MessageSquare, DollarSign, User, Mail, Phone, MapPin, UserCircle, ShieldCheck, HelpCircle
 } from 'lucide-react';
 import OptimizedImage from '../components/OptimizedImage';
 
@@ -443,7 +443,7 @@ const ProfessionalDashboard = () => {
         <div className="hidden md:flex items-center gap-4 flex-1 max-w-xl mx-8">
           <div className="relative w-full group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={18} />
-            <input type="text" placeholder="Access neural records..." className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-3 text-sm font-medium focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500/40 transition-all placeholder:text-slate-400" />
+            <input type="text" placeholder="Access  records..." className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-3 text-sm font-medium focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500/40 transition-all placeholder:text-slate-400" />
           </div>
         </div>
 
@@ -502,6 +502,10 @@ const ProfessionalDashboard = () => {
                 <SwitchCamera size={18} className="group-hover:rotate-180 transition-transform duration-500" />
                 <span className="text-sm font-bold uppercase tracking-widest text-[10px]">Portal: User Mode</span>
               </button>
+              <button onClick={() => navigate('/help')} className="w-full flex items-center gap-4 p-4 rounded-xl text-slate-500 hover:bg-slate-50 transition-all group">
+                <HelpCircle size={18} className="group-hover:text-teal-600 transition-colors" />
+                <span className="text-sm font-bold uppercase tracking-widest text-[10px]">Help Centre</span>
+              </button>
               <button onClick={handleLogout} className="w-full flex items-center gap-4 p-4 rounded-xl text-red-500 hover:bg-red-50 transition-all">
                 <Power size={18} />
                 <span className="text-sm font-bold uppercase tracking-widest text-[10px]">Disconnect Session</span>
@@ -517,7 +521,7 @@ const ProfessionalDashboard = () => {
                 {activeTab === 'overview' ? 'Interface Overview' : menuItems.find(i => i.id === activeTab)?.label}
               </h1>
               <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">
-                Kamau Neural Network &bull; Session Active
+                Kamau   &bull; Session Active
               </p>
             </header>
 

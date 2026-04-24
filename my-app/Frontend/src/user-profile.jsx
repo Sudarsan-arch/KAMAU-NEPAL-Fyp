@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from 'react-router-dom'
 import axios from "axios"
-import { Camera, Mail, Phone, MapPin, CheckCircle2, ArrowLeft, AlertCircle, Menu, X, Bell, Lock, ShieldCheck, Key, UserCircle } from "lucide-react"
+import { Camera, Mail, Phone, MapPin, CheckCircle2, ArrowLeft, AlertCircle, Menu, X, Bell, Lock, ShieldCheck, Key, UserCircle, Moon, Sun, Monitor, Languages, Globe } from "lucide-react"
 import Sidebar from './components/Sidebar'
 import Logo from './Logo'
 import OptimizedImage from './components/OptimizedImage'
@@ -46,6 +46,22 @@ export default function UserProfile() {
   })
   const [strengthScore, setStrengthScore] = useState(0)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light')
+  const [language, setLanguage] = useState(localStorage.getItem('language') || 'en')
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const handleLanguageChange = (lang) => {
+    setLanguage(lang)
+    localStorage.setItem('language', lang)
+  }
 
   // Reusable function to get address from OSM Nominatim
   const getAddressFromCoordinates = async (lat, lng) => {
@@ -620,9 +636,18 @@ export default function UserProfile() {
                 >
                   Passwords & Security
                 </button>
+                <button
+                  onClick={() => setActiveTab("settings")}
+                  className={`px-6 py-3 font-bold text-sm transition-all border-b-2 ${activeTab === "settings"
+                      ? "border-teal-600 text-teal-600"
+                      : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                    }`}
+                >
+                  Appearance
+                </button>
               </div>
 
-              {activeTab === "profile" ? (
+              {activeTab === "profile" && (
                 <div className="space-y-8 animate-in fade-in duration-500">
                   {/* Profile Picture Section */}
                   <div className="flex flex-col items-center gap-4 pb-8 border-b border-slate-200">
@@ -793,7 +818,7 @@ export default function UserProfile() {
                           value={isLocationEnabled ? (currentAddressName || (isGeocoding ? "Locating area..." : "Real-time Location Active")) : formData.location}
                           onChange={handleInputChange}
                           disabled={isLocationEnabled}
-                          className={`w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-teal-200 transition-all ${(isLocationEnabled || isLocationVerified) ? "bg-teal-50/30 text-teal-700 font-bold" : ""}`}
+                          className={`w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${(isLocationEnabled || isLocationVerified) ? "bg-teal-50/30 text-teal-700 font-bold" : ""}`}
                         />
 
                         {(isLocationEnabled || isLocationVerified) && (currentAddressName || isGeocoding) && (
@@ -866,7 +891,9 @@ export default function UserProfile() {
                     </button>
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {activeTab === "security" && (
                 <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
                   <div className="space-y-6">
                     <div className="flex items-center gap-4 mb-4">
@@ -1031,6 +1058,109 @@ export default function UserProfile() {
                   </div>
                 </div>
               )}
+
+              {activeTab === "settings" && (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                  <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100">
+                    <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                       <Moon size={24} className="text-teal-600" /> Interface Appearance
+                    </h2>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <button 
+                        onClick={() => setTheme('light')}
+                        className={`flex items-center justify-between p-6 rounded-2xl border-2 transition-all ${theme === 'light' ? 'border-teal-600 bg-white shadow-md' : 'border-slate-100 bg-white/50 hover:bg-white'}`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`p-3 rounded-xl ${theme === 'light' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                            <Sun size={20} />
+                          </div>
+                          <div className="text-left">
+                            <p className="font-bold text-slate-900">Light Mode</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Standard Bright</p>
+                          </div>
+                        </div>
+                        {theme === 'light' && <CheckCircle2 size={20} className="text-teal-600" />}
+                      </button>
+
+                      <button 
+                        onClick={() => setTheme('dark')}
+                        className={`flex items-center justify-between p-6 rounded-2xl border-2 transition-all ${theme === 'dark' ? 'border-teal-600 bg-white shadow-md' : 'border-slate-100 bg-white/50 hover:bg-white'}`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`p-3 rounded-xl ${theme === 'dark' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                            <Moon size={20} />
+                          </div>
+                          <div className="text-left">
+                            <p className="font-bold text-slate-900">Dark Mode</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Low Light Focus</p>
+                          </div>
+                        </div>
+                        {theme === 'dark' && <CheckCircle2 size={20} className="text-teal-600" />}
+                      </button>
+                    </div>
+
+                    <div className="mt-8 pt-8 border-t border-slate-100">
+                      <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                         <Globe size={24} className="text-teal-600" /> Platform Language
+                      </h2>
+
+                      <div className="flex flex-col sm:flex-row gap-4">
+                         <button 
+                           onClick={() => handleLanguageChange('en')}
+                           className={`flex-1 flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${language === 'en' ? 'border-teal-600 bg-white shadow-sm' : 'border-slate-100 bg-white/50 hover:bg-white'}`}
+                         >
+                            <div className="flex items-center gap-3">
+                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${language === 'en' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                  EN
+                               </div>
+                               <div className="text-left">
+                                  <p className="font-bold text-slate-900">English</p>
+                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Global Standard</p>
+                               </div>
+                            </div>
+                            {language === 'en' && <CheckCircle2 size={20} className="text-teal-600" />}
+                         </button>
+
+                         <button 
+                           onClick={() => handleLanguageChange('ne')}
+                           className={`flex-1 flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${language === 'ne' ? 'border-teal-600 bg-white shadow-sm' : 'border-slate-100 bg-white/50 hover:bg-white'}`}
+                         >
+                            <div className="flex items-center gap-3">
+                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${language === 'ne' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                  NE
+                               </div>
+                               <div className="text-left">
+                                  <p className="font-bold text-slate-900">नेपाली</p>
+                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Local Language</p>
+                               </div>
+                            </div>
+                            {language === 'ne' && <CheckCircle2 size={20} className="text-teal-600" />}
+                         </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 p-6 bg-white border border-slate-100 rounded-2xl flex items-center justify-between">
+                       <div className="flex items-center gap-4">
+                          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                             <ShieldCheck size={20} />
+                          </div>
+                          <div>
+                             <p className="font-bold text-slate-900">Privacy & Security</p>
+                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Manage your neural protection</p>
+                          </div>
+                       </div>
+                       <button 
+                         onClick={() => setActiveTab('security')}
+                         className="px-6 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-teal-600 transition-all"
+                       >
+                         Open Security
+                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </main>

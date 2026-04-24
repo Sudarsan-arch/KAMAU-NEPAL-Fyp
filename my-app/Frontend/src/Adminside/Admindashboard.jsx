@@ -20,7 +20,8 @@ import {
   FileText,
   Download,
   Trash2,
-  CheckCircle2
+  CheckCircle2,
+  TrendingUp
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -30,6 +31,10 @@ import * as adminService from './adminService';
 import StatusBadge from './StatusBadge';
 import MessageCenter from './Messagecentre';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
+} from 'recharts';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -46,6 +51,9 @@ const AdminDashboard = () => {
   });
   const [professionals, setProfessionals] = useState([]);
   const [users, setUsers] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [categoryData, setCategoryData] = useState([]);
+  const [statusData, setStatusData] = useState([]);
 
   // Modal States
   const [selectedProfessional, setSelectedProfessional] = useState(null);
@@ -91,6 +99,46 @@ const AdminDashboard = () => {
       } else if (activeTab === 'users') {
         const response = await adminService.getAllUsers();
         if (response.success) setUsers(response.data);
+      } else if (activeTab === 'analytics') {
+        const [analyticsRes, categoryRes, statusRes] = await Promise.all([
+          adminService.getAnalyticsData(),
+          adminService.getCategoryDistribution(),
+          adminService.getStatusDistribution()
+        ]);
+        
+        if (analyticsRes.success) setAnalyticsData(analyticsRes.data);
+        if (categoryRes.success) {
+          const rawData = categoryRes.data;
+          let formatted = [];
+          if (Array.isArray(rawData)) {
+            formatted = rawData.map(item => ({
+              name: (item.category || item._id || 'General').charAt(0).toUpperCase() + (item.category || item._id || 'General').slice(1),
+              value: item.count || 0
+            }));
+          } else {
+            formatted = Object.entries(rawData).map(([name, value]) => ({ 
+              name: name.charAt(0).toUpperCase() + name.slice(1), 
+              value 
+            }));
+          }
+          setCategoryData(formatted);
+        }
+        if (statusRes.success) {
+          const rawData = statusRes.data;
+          let formatted = [];
+          if (Array.isArray(rawData)) {
+            formatted = rawData.map(item => ({
+              name: (item.status || item._id || 'Unknown').charAt(0).toUpperCase() + (item.status || item._id || 'Unknown').slice(1),
+              value: item.count || 0
+            }));
+          } else {
+            formatted = Object.entries(rawData).map(([name, value]) => ({ 
+              name: name.charAt(0).toUpperCase() + name.slice(1), 
+              value 
+            }));
+          }
+          setStatusData(formatted);
+        }
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -325,6 +373,7 @@ const AdminDashboard = () => {
     { id: 'requests', label: 'Verification', icon: UserCheck, badge: stats.totalPending || null },
     { id: 'professionals', label: 'Professionals', icon: Shield, badge: null },
     { id: 'users', label: 'Total Users', icon: Users, badge: null },
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null },
     { id: 'broadcast', label: 'Broadcast', icon: MessageSquare, badge: null },
   ];
 
@@ -351,7 +400,7 @@ const AdminDashboard = () => {
       <aside className={`fixed inset-y-0 left-0 z-50 w-80 bg-white/80 backdrop-blur-2xl border-r border-slate-100 transform transition-all duration-500 lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} shadow-xl`}>
         <div className="h-full flex flex-col p-8 relative">
           <div className="flex items-center justify-between mb-12 relative">
-            <Logo className="h-10 w-auto" />
+            <Logo className="h-10 w-auto" isStatic={true} />
             <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-3 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all"><X size={20} /></button>
           </div>
 
@@ -399,7 +448,7 @@ const AdminDashboard = () => {
         <header className="sticky top-0 z-40 bg-white/60 backdrop-blur-2xl border-b border-slate-100 px-10 py-6 flex items-center justify-between">
           <div className="flex items-center gap-6 lg:hidden">
             <button onClick={() => setSidebarOpen(true)} className="p-3 bg-slate-50 text-slate-600 rounded-2xl"><Menu size={22} /></button>
-            <Logo className="h-8 w-auto" />
+            <Logo className="h-8 w-auto" isStatic={true} />
           </div>
 
           <div className="hidden md:flex items-center gap-4 flex-1 max-w-xl">
@@ -794,6 +843,103 @@ const AdminDashboard = () => {
           {activeTab === 'broadcast' && (
             <div className="max-w-4xl mx-auto h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
                <MessageCenter />
+            </div>
+          )}
+
+          {activeTab === 'analytics' && (
+            <div className="space-y-12 animate-in fade-in duration-500">
+              <section>
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                  <div>
+                    <h1 className="text-4xl font-black tracking-tight mb-2 text-slate-900">Platform Analytics</h1>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Real-time growth and distribution metrics</p>
+                  </div>
+                  <div className="flex gap-4">
+                    <button onClick={() => fetchDashboardData()} className="px-6 py-3 bg-white border border-slate-100 text-teal-600 text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-2">
+                       <Activity size={14} /> Refresh Data
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                  {/* Growth Chart */}
+                  <div className="bg-white p-10 rounded-[48px] border border-slate-100 shadow-xl shadow-slate-200/40 min-h-[450px]">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-8 flex items-center gap-3">
+                       <TrendingUp size={18} className="text-teal-500" /> Platform Growth
+                    </h3>
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={categoryData}>
+                          <defs>
+                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#0d9488" stopOpacity={0.1}/>
+                              <stop offset="95%" stopColor="#0d9488" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} dy={10} />
+                          <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} />
+                          <Tooltip 
+                            contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                          />
+                          <Area type="monotone" dataKey="value" stroke="#0d9488" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Category Distribution */}
+                  <div className="bg-white p-10 rounded-[48px] border border-slate-100 shadow-xl shadow-slate-200/40 min-h-[450px]">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-8 flex items-center gap-3">
+                       <Orbit size={18} className="text-orange-500" /> Service Categories
+                    </h3>
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={categoryData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {categoryData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={['#0d9488', '#f97316', '#6366f1', '#ec4899', '#8b5cf6', '#f59e0b'][index % 6]} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                          />
+                          <Legend verticalAlign="bottom" height={36}/>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Status Metrics */}
+                  <div className="lg:col-span-2 bg-white p-10 rounded-[48px] border border-slate-100 shadow-xl shadow-slate-200/40">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-8 flex items-center gap-3">
+                       <CheckCircle2 size={18} className="text-blue-500" /> Verification Status Breakdown
+                    </h3>
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={statusData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} dy={10} />
+                          <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} />
+                          <Tooltip 
+                             cursor={{fill: '#f8fafc'}}
+                             contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                          />
+                          <Bar dataKey="value" fill="#0d9488" radius={[10, 10, 0, 0]} barSize={60} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           )}
         </div>

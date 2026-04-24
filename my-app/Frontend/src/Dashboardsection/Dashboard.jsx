@@ -52,6 +52,7 @@ const Dashboard = () => {
     fullName: "",
     workDescription: "",
     timeSchedule: "",
+    bookingDate: new Date().toISOString().split('T')[0],
     location: "",
   });
   const [hireFormErrors, setHireFormErrors] = useState({});
@@ -167,7 +168,7 @@ const Dashboard = () => {
     name: userData.name,
     email: userData.email,
     location: userData.location,
-    role: "",
+    role: userRole || "",
     joinDate: "Jan 2024",
   };
 
@@ -224,12 +225,13 @@ const Dashboard = () => {
       color: "bg-blue-100 text-blue-800",
       avatar: "💻",
       rating: 4.9,
-      hourlyRate: "$45/hr",
+      hourlyRate: "रू 45/hr",
       location: "Kathmandu, Nepal",
       type: "Remote",
       schedule: "Full-time",
       experience: "5+ Years",
-      salary: "$60k - $90k"
+      salary: "रू 60k - रू 90k",
+      professionalId: "679f4270d4c82b09c256087b" // Linked to a test pro if exists
     },
     {
       title: "Frontend Engineer",
@@ -244,7 +246,8 @@ const Dashboard = () => {
       type: "Hybrid",
       schedule: "Contract",
       experience: "3+ Years",
-      salary: "$40k - $55k"
+      salary: "रू 40k - रू 55k",
+      professionalId: "679f4270d4c82b09c256087c"
     },
     {
       title: "Full Stack Developer",
@@ -254,12 +257,13 @@ const Dashboard = () => {
       color: "bg-gray-100 text-gray-800",
       avatar: "🚀",
       rating: 4.5,
-      hourlyRate: "$40/hr",
+      hourlyRate: "रू 40/hr",
       location: "Lalitpur, Nepal",
       type: "On-site",
       schedule: "Full-time",
       experience: "4+ Years",
-      salary: "$50k - $70k"
+      salary: "रू 50k - रू 70k",
+      professionalId: "679f4270d4c82b09c256087d"
     },
   ]);
 
@@ -268,9 +272,7 @@ const Dashboard = () => {
       title: "Sign Out",
       message: "Are you sure you want to log out? You will need to sign in again to access your dashboard and bookings.",
       onConfirm: () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("userId");
-        localStorage.removeItem("userName");
+        localStorage.clear(); // Clear everything for a clean logout
         navigate("/");
       },
       type: 'danger'
@@ -308,6 +310,7 @@ const Dashboard = () => {
     if (!hireFormData.fullName.trim()) errors.fullName = "Full name is required";
     if (!hireFormData.workDescription.trim()) errors.workDescription = "Work description is required";
     if (!hireFormData.timeSchedule.trim()) errors.timeSchedule = "Time schedule is required";
+    if (!hireFormData.bookingDate.trim()) errors.bookingDate = "Booking date is required";
     if (!hireFormData.location.trim()) errors.location = "Location is required";
 
     if (Object.keys(errors).length > 0) {
@@ -327,14 +330,16 @@ const Dashboard = () => {
       // Create booking data object
       const bookingData = {
         userId,
+        professionalId: selectedJob.professionalId || null,
         serviceTitle: selectedJob.title,
         serviceProvider: selectedJob.company,
         fullName: hireFormData.fullName,
         workDescription: hireFormData.workDescription,
         timeSchedule: hireFormData.timeSchedule,
+        bookingDate: hireFormData.bookingDate,
         location: hireFormData.location,
-        hourlyRate: selectedJob.hourlyRate || "$0.00",
-        totalCost: selectedJob.hourlyRate || "$0.00",
+        hourlyRate: selectedJob.hourlyRate || "रू 0.00",
+        totalCost: selectedJob.hourlyRate || "रू 0.00",
         rating: selectedJob.rating || 0
       };
 
@@ -415,7 +420,7 @@ const Dashboard = () => {
             provider: selectedJob.company,
             company: selectedJob.company,
             rating: selectedJob.rating || 4.5,
-            cost: selectedJob.hourlyRate || "$0.00",
+            cost: selectedJob.hourlyRate || "रू 0.00",
             category: selectedJob.title.includes("Developer") ? "Tech" :
               selectedJob.title.includes("Engineer") ? "Creative" : "Home",
             dateAdded: new Date().toISOString(),
@@ -577,7 +582,7 @@ const Dashboard = () => {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Travel Fee</span>
-                      <span className="font-semibold text-gray-900">$0.00</span>
+                      <span className="font-semibold text-gray-900">रू 0.00</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Rating</span>
@@ -681,6 +686,19 @@ const Dashboard = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1 text-[10px]">Preferred Date</label>
+                      <input
+                        type="date"
+                        name="bookingDate"
+                        value={hireFormData.bookingDate}
+                        onChange={handleHireFormChange}
+                        min={new Date().toISOString().split('T')[0]}
+                        className={`w-full px-3 py-2.5 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none bg-white text-sm ${hireFormErrors.bookingDate ? "border-red-500" : "border-gray-200"
+                          }`}
+                      />
+                      {hireFormErrors.bookingDate && <p className="text-red-500 text-[10px] mt-1">{hireFormErrors.bookingDate}</p>}
+                    </div>
+                    <div>
                       <label className="block text-xs font-bold text-gray-700 uppercase mb-1 text-[10px]">Preferred Time</label>
                       <select
                         name="timeSchedule"
@@ -694,19 +712,22 @@ const Dashboard = () => {
                         <option value="Afternoon">Afternoon</option>
                         <option value="Evening">Evening</option>
                       </select>
+                      {hireFormErrors.timeSchedule && <p className="text-red-500 text-[10px] mt-1">{hireFormErrors.timeSchedule}</p>}
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1 text-[10px]">Service Area</label>
-                      <input
-                        type="text"
-                        name="location"
-                        value={hireFormData.location}
-                        onChange={handleHireFormChange}
-                        placeholder="e.g. Kathmandu"
-                        className={`w-full px-3 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm ${hireFormErrors.location ? "border-red-500" : "border-gray-200"
-                          }`}
-                      />
-                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1 text-[10px]">Service Area / Location</label>
+                    <input
+                      type="text"
+                      name="location"
+                      value={hireFormData.location}
+                      onChange={handleHireFormChange}
+                      placeholder="e.g. Kathmandu"
+                      className={`w-full px-3 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm ${hireFormErrors.location ? "border-red-500" : "border-gray-200"
+                        }`}
+                    />
+                    {hireFormErrors.location && <p className="text-red-500 text-[10px] mt-1">{hireFormErrors.location}</p>}
                   </div>
 
                   <div className="flex gap-3 pt-4">

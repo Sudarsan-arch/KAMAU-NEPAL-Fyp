@@ -63,7 +63,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
 
     const adminItems = [
         { id: "settings", label: "Settings", icon: Settings, route: "/user-profile" },
-        { id: "help", label: "Help Center", icon: HelpCircle },
+        { id: "help", label: "Help Center", icon: HelpCircle, route: "/help" },
     ];
 
     return (
