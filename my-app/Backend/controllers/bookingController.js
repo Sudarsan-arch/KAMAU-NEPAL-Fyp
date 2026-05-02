@@ -529,15 +529,16 @@ export const checkUserBookingStatus = async (req, res) => {
     }
 
     // Find any booking by this user for this professional with status 'Confirmed' or 'Completed'
-    const booking = await Booking.findOne({
+    const bookings = await Booking.find({
       userId,
       professionalId,
-      status: { $in: ["Confirmed", "Completed"] }
+      status: { $in: ["Confirmed", "Completed", "Pending"] }
     });
 
     res.status(200).json({
       success: true,
-      hasBooking: !!booking
+      hasBooking: bookings.some(b => ["Confirmed", "Completed"].includes(b.status)),
+      hasPending: bookings.some(b => b.status === "Pending")
     });
   } catch (error) {
     console.error("Error checking user booking status:", error);

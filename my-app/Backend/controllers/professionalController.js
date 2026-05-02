@@ -18,6 +18,7 @@ export const registerProfessional = async (req, res) => {
       username,
       email,
       phone,
+      gender,
       serviceCategory,
       serviceArea,
       hourlyWage,
@@ -163,6 +164,7 @@ export const registerProfessional = async (req, res) => {
       username,
       email,
       phone,
+      gender,
       serviceCategory,
       serviceArea,
       hourlyWage: parseFloat(hourlyWage) || 0,
@@ -353,7 +355,7 @@ export const searchProfessionals = async (req, res) => {
 export const updateProfessionalProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, bio, hourlyWage, serviceArea, phone, formattedAddress, availability } = req.body;
+    const { firstName, lastName, bio, hourlyWage, serviceArea, phone, gender, formattedAddress, availability } = req.body;
 
     const updateData = {};
 
@@ -363,6 +365,7 @@ export const updateProfessionalProfile = async (req, res) => {
     if (hourlyWage !== undefined) updateData.hourlyWage = parseFloat(hourlyWage);
     if (serviceArea) updateData.serviceArea = serviceArea;
     if (phone) updateData.phone = phone;
+    if (gender) updateData.gender = gender;
     if (formattedAddress) updateData.formattedAddress = formattedAddress;
     if (availability) {
       updateData.availability = typeof availability === 'string' ? JSON.parse(availability) : availability;

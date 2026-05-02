@@ -63,29 +63,51 @@ export default function UserProfile() {
 
   // Reusable function to get address from OSM Nominatim
   const getAddressFromCoordinates = async (lat, lng) => {
+    if (!lat || !lng || (lat === 0 && lng === 0)) {
+      return "Waiting for GPS signal..."
+    }
+
     try {
       setIsGeocoding(true)
       const response = await axios.get(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
         {
           headers: {
-            'User-Agent': 'KamauNepalApp/1.0'
-          }
+            'Accept-Language': currentLanguage === 'ne' ? 'ne,en' : 'en',
+            'User-Agent': 'ServiceApp/1.0' // Required by Nominatim
+          },
+          timeout: 15000 // Increased timeout to 15 seconds
         }
       )
 
-      if (response.data && response.data.address) {
-        const addr = response.data.address
-        const area = addr.suburb || addr.neighbourhood || addr.village || addr.city_district || ""
-        const city = addr.city || addr.town || addr.municipality || ""
-        const country = addr.country || ""
+      if (response.data && response.data.display_name) {
+        // Use display_name as fallback if address parsing fails
+        if (response.data.address) {
+          const addr = response.data.address
+          const area = addr.suburb || addr.neighbourhood || addr.village || addr.city_district || addr.ward || addr.hamlet || ""
+          const city = addr.city || addr.town || addr.municipality || addr.state_district || addr.county || ""
+          const region = addr.state || addr.region || ""
+          const country = addr.country || ""
 
-        return [area, city, country].filter(Boolean).join(", ")
+          const formattedAddress = [area, city, region, country].filter(Boolean).join(", ")
+          return formattedAddress || response.data.display_name
+        }
+        return response.data.display_name
       }
       return "Address not found"
     } catch (error) {
-      console.error("OSM Geocoding error:", error)
-      return "Error fetching address"
+      console.error("Geocoding error:", error)
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        return "Connection timeout. Please check your internet."
+      }
+      if (error.response?.status === 403 || error.response?.status === 429) {
+        return "Too many requests. Please wait a moment..."
+      }
+      if (error.response?.status === 404) {
+        return "Location service unavailable"
+      }
+      // Return a more user-friendly error message
+      return "Unable to get address. You can enter it manually."
     } finally {
       setIsGeocoding(false)
     }
@@ -139,12 +161,12 @@ export default function UserProfile() {
             fullName: user.name || "",
             email: user.email || "",
             phone: user.phone || "",
-            location: user.formattedAddress || (typeof user.location === 'string' ? user.location : ""),
+            location: user.formattedAddress || user.address || (typeof user.location === 'string' ? user.location : ""),
           })
 
-          if (user.formattedAddress) {
+          if (user.formattedAddress || user.address) {
             setIsLocationVerified(true);
-            setCurrentAddressName(user.formattedAddress);
+            setCurrentAddressName(user.formattedAddress || user.address);
           }
 
           if (user.profileImage) {
@@ -214,7 +236,7 @@ export default function UserProfile() {
 
     const handler = setTimeout(() => {
       setDebouncedCoords(coords)
-    }, 5000) // 5 second debounce
+    }, 15000) // Increased to 15 second debounce to respect Nominatim usage policy
 
     return () => clearTimeout(handler)
   }, [coords])
@@ -226,47 +248,58 @@ export default function UserProfile() {
     const fetchAddress = async () => {
       const address = await getAddressFromCoordinates(debouncedCoords.latitude, debouncedCoords.longitude)
       setCurrentAddressName(address)
-      setIsLocationVerified(true)
+      
+      // Only mark as verified if we got a valid address (not an error message)
+      const isValidAddress = address && 
+        !address.includes("Unable") && 
+        !address.includes("Error") && 
+        !address.includes("timeout") && 
+        !address.includes("unavailable") &&
+        !address.includes("Waiting")
+      
+      if (isValidAddress) {
+        setIsLocationVerified(true)
+        
+        // Update form data so it stays "saved" even if tracking stops
+        setFormData(prev => ({
+          ...prev,
+          location: address
+        }))
 
-      // Update form data so it stays "saved" even if tracking stops
-      setFormData(prev => ({
-        ...prev,
-        location: address
-      }))
+        // Update backend with the new address and coordinates
+        try {
+          const token = localStorage.getItem("token")
+          const role = localStorage.getItem("userRole") // Get role if available
 
-      // Update backend with the new address and coordinates
-      try {
-        const token = localStorage.getItem("token")
-        const role = localStorage.getItem("userRole") // Get role if available
-
-        if (token) {
-          await axios.put(
-            "/api/users/update-location",
-            {
-              latitude: debouncedCoords.latitude,
-              longitude: debouncedCoords.longitude,
-              formattedAddress: address,
-              role: role || "user"
-            },
-            { headers: { Authorization: `Bearer ${token}` } }
-          )
-          console.log("Location and Address persisted to database:", { address })
-          localStorage.setItem("userLocation", address)
-
-          // Stop tracking automatically to keep it static as requested
-          if (watchId) {
-            navigator.geolocation.clearWatch(watchId)
-            setWatchId(null)
+          if (token) {
+            await axios.put(
+              "/api/users/update-location",
+              {
+                latitude: debouncedCoords.latitude,
+                longitude: debouncedCoords.longitude,
+                formattedAddress: address,
+                role: role || "user"
+              },
+              { headers: { Authorization: `Bearer ${token}` } }
+            )
+            console.log("Location and Address persisted to database:", { address })
+            localStorage.setItem("userLocation", address)
           }
-          setIsLocationEnabled(false)
+        } catch (err) {
+          console.error("Failed to persist address:", err)
+          setErrors(prev => ({ 
+            ...prev, 
+            location: "Location saved locally but couldn't sync to server" 
+          }))
         }
-      } catch (err) {
-        console.error("Failed to persist address:", err)
+      } else {
+        // If address fetch failed, show the error but don't stop tracking
+        console.warn("Address lookup failed:", address)
       }
     }
 
     fetchAddress()
-  }, [debouncedCoords, watchId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debouncedCoords]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0]
@@ -411,22 +444,54 @@ export default function UserProfile() {
     }
 
     setIsLoading(true)
+    setErrors({ ...errors, location: "" }) // Clear previous errors
+    
     const id = navigator.geolocation.watchPosition(
       async (position) => {
         const { latitude, longitude } = position.coords
+        console.log("Location updated:", { latitude, longitude, accuracy: position.coords.accuracy })
         setCoords({ latitude, longitude })
         setIsLocationEnabled(true)
         setIsLoading(false)
+        setErrors({ ...errors, location: "" }) // Clear errors on success
       },
       (error) => {
         console.error("Geolocation error:", error)
         setIsLocationEnabled(false)
         setIsLoading(false)
-        setErrors({ ...errors, location: "Location permission denied. Please enter address manually." })
+        
+        let errorMessage = "Location access denied"
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location permission denied. Please enable location access in your browser settings."
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable. Please check your device settings."
+            break
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out. Please try again."
+            break
+          default:
+            errorMessage = "Unable to get location. You can enter address manually."
+        }
+        
+        setErrors({ ...errors, location: errorMessage })
       },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      { 
+        enableHighAccuracy: true, 
+        timeout: 10000, 
+        maximumAge: 0 
+      }
     )
     setWatchId(id)
+  }
+
+  const stopTracking = () => {
+    if (watchId) {
+      navigator.geolocation.clearWatch(watchId)
+      setWatchId(null)
+    }
+    setIsLocationEnabled(false)
   }
 
   const checkPasswordStrength = (pass) => {
@@ -813,19 +878,44 @@ export default function UserProfile() {
                           name="location"
                           type="text"
                           placeholder="City, Country or Street Address"
-                          value={isLocationEnabled ? (currentAddressName || (isGeocoding ? "Locating area..." : "Real-time Location Active")) : formData.location}
+                          value={isLocationEnabled ? (currentAddressName || (isGeocoding ? "Locating area..." : "Getting location...")) : formData.location}
                           onChange={handleInputChange}
                           disabled={isLocationEnabled}
-                          className={`w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${(isLocationEnabled || isLocationVerified) ? "bg-teal-50/30 text-teal-700 font-bold" : ""}`}
+                          className={`w-full px-4 py-2.5 border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 transition-all ${
+                            (isLocationEnabled || isLocationVerified) ? "bg-teal-50/30 text-teal-700 font-bold" : ""
+                          } ${
+                            errors.location ? "border-red-300 focus:ring-red-200" : "focus:ring-teal-200"
+                          }`}
                         />
 
-                        {(isLocationEnabled || isLocationVerified) && (currentAddressName || isGeocoding) && (
+                        {(isLocationEnabled || isLocationVerified) && currentAddressName && !currentAddressName.includes("Unable") && !currentAddressName.includes("Error") && (
                           <div className="p-3 bg-teal-50 border border-teal-100 rounded-xl animate-in fade-in slide-in-from-top-1 duration-300">
                             <p className="text-xs font-bold text-teal-800 uppercase tracking-wider mb-1 flex items-center gap-1">
-                              {isGeocoding ? `Updating...` : isLocationEnabled ? `📍 Live Tracking Active` : `📍 Saved Verified Location`}
+                              {isGeocoding ? (
+                                <>
+                                  <span className="inline-block w-3 h-3 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></span>
+                                  Updating...
+                                </>
+                              ) : isLocationEnabled ? (
+                                <>📍 Live Tracking Active</>
+                              ) : (
+                                <>📍 Saved Verified Location</>
+                              )}
                             </p>
                             <p className="text-sm text-teal-900 font-semibold">
-                              {isGeocoding ? "Calculating address..." : currentAddressName || formData.location}
+                              {isGeocoding ? "Calculating address..." : currentAddressName}
+                            </p>
+                          </div>
+                        )}
+
+                        {currentAddressName && (currentAddressName.includes("Unable") || currentAddressName.includes("Error") || currentAddressName.includes("timeout") || currentAddressName.includes("unavailable")) && (
+                          <div className="p-3 bg-orange-50 border border-orange-200 rounded-xl">
+                            <p className="text-xs font-bold text-orange-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+                              <AlertCircle size={14} />
+                              Address Lookup Issue
+                            </p>
+                            <p className="text-sm text-orange-900 font-medium">
+                              {currentAddressName}
                             </p>
                           </div>
                         )}
@@ -834,19 +924,39 @@ export default function UserProfile() {
                           <button
                             type="button"
                             onClick={startTracking}
-                            className="flex items-center justify-center gap-2 py-2 px-4 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl hover:bg-teal-100 transition-all font-semibold text-sm"
+                            disabled={isLoading}
+                            className="flex items-center justify-center gap-2 py-2 px-4 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl hover:bg-teal-100 transition-all font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <MapPin size={16} />
-                            {isLocationVerified ? "Update with Real-time Location" : "Enable Real-time Location"}
+                            {isLoading ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+                                Getting Location...
+                              </>
+                            ) : (
+                              <>
+                                <MapPin size={16} />
+                                {isLocationVerified ? "Update with Real-time Location" : "Enable Real-time Location"}
+                              </>
+                            )}
                           </button>
                         ) : (
-                          <div className="flex items-center gap-2 text-xs text-green-600 font-medium px-2">
-                            <CheckCircle2 size={12} /> Live tracking active
-                          </div>
+                          <button
+                            type="button"
+                            onClick={stopTracking}
+                            className="flex items-center justify-center gap-2 py-2 px-4 bg-red-50 text-red-700 border border-red-200 rounded-xl hover:bg-red-100 transition-all font-semibold text-sm"
+                          >
+                            <X size={16} />
+                            Stop Live Tracking
+                          </button>
                         )}
 
                         {errors.location && (
-                          <p className="text-xs text-red-500 font-medium">{errors.location}</p>
+                          <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                            <p className="text-xs font-bold text-red-800 flex items-center gap-1">
+                              <AlertCircle size={14} />
+                              {errors.location}
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>

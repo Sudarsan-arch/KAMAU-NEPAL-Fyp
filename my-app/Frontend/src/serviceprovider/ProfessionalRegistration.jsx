@@ -34,6 +34,7 @@ const ProfessionalRegistration = () => {
     username: "",
     email: "",
     phone: "",
+    gender: "",
     serviceCategory: "",
     serviceArea: "",
     hourlyWage: "",
@@ -180,6 +181,8 @@ const ProfessionalRegistration = () => {
     } else if (!/^[0-9]{10}$/.test(formData.phone.replace(/\D/g, ''))) {
       newErrors.phone = "Please enter a valid 10-digit phone number"
     }
+    
+    if (!formData.gender) newErrors.gender = "Gender selection is required"
 
     if (!formData.serviceCategory) newErrors.serviceCategory = "Service category is required"
     
@@ -824,6 +827,28 @@ const ProfessionalRegistration = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  {/* Gender */}
+                  <div className="space-y-2">
+                    <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1">Gender *</label>
+                    <div className="relative">
+                      <User className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 sm:w-5 sm:h-5" />
+                      <select
+                        required
+                        name="gender"
+                        className={`w-full bg-slate-50 border ${errors.gender ? 'border-red-300' : 'border-slate-200'} rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-9 sm:pl-12 pr-8 sm:pr-10 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-medium text-sm sm:text-base appearance-none cursor-pointer`}
+                        value={formData.gender}
+                        onChange={handleInputChange}
+                      >
+                        <option value="" disabled>Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Prefer not to say">Prefer not to say</option>
+                      </select>
+                    </div>
+                    {errors.gender && (
+                      <p className="text-xs text-red-500 ml-1">{errors.gender}</p>
+                    )}
+                  </div>
                   {/* Service Category */}
                   <div className="space-y-2">
                     <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1">Service Category *</label>

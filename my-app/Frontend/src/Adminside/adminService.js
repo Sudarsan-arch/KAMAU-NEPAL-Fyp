@@ -10,7 +10,8 @@ const axiosInstance = axios.create({
 // Add token to requests
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('adminToken');
+    // Check for adminToken first, fallback to standard token
+    const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -293,6 +294,48 @@ export const deleteProfessional = async (id) => {
   }
 };
 
+/**
+ * Get all reports
+ * @returns {Promise} List of reports
+ */
+export const getReports = async () => {
+  try {
+    const response = await axios.get('/api/reports/all', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
+      }
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    throw error.response?.data || {
+      success: false,
+      message: "Failed to fetch reports"
+    };
+  }
+};
+
+/**
+ * Update report status
+ * @param {String} id - Report ID
+ * @param {Object} data - { status, adminNotes }
+ * @returns {Promise} Updated report
+ */
+export const updateReportStatus = async (id, data) => {
+  try {
+    const response = await axios.patch(`/api/reports/${id}/status`, data, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
+      }
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    throw error.response?.data || {
+      success: false,
+      message: "Failed to update report status"
+    };
+  }
+};
+
 const adminServiceData = {
   getDashboardStats,
   getAnalyticsData,
@@ -311,6 +354,8 @@ const adminServiceData = {
   getAllUsers,
   deleteUser,
   deleteProfessional,
+  getReports,
+  updateReportStatus
 };
 
 export default adminServiceData;

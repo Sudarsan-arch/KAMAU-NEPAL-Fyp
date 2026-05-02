@@ -76,7 +76,9 @@ const ConfirmDialog = ({
               <div className="mt-8 flex flex-col gap-3">
                 <button 
                   onClick={() => {
-                    onConfirm();
+                    if (typeof onConfirm === 'function') {
+                      onConfirm();
+                    }
                     onClose();
                   }}
                   className={`w-full py-4 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg transition-all active:scale-[0.98] ${currentTheme.button}`}

@@ -14,7 +14,9 @@ import {
     Smile,
     Paperclip,
     Check,
-    CheckCheck
+    CheckCheck,
+    AlertTriangle,
+    User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -60,6 +62,47 @@ export default function MessagePage() {
         onConfirm: () => {}, 
         type: 'danger' 
     });
+
+    const [previewImage, setPreviewImage] = useState(null);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [reportReason, setReportReason] = useState('');
+    const [reportDescription, setReportDescription] = useState('');
+    const [isReporting, setIsReporting] = useState(false);
+    const [reportSuccess, setReportSuccess] = useState(false);
+
+    const handleReportUser = async (e) => {
+        e.preventDefault();
+        if (!reportReason || !reportDescription || !selectedContact) return;
+
+        setIsReporting(true);
+        try {
+            const role = localStorage.getItem('role'); // 'user' or 'professional'
+            const reporterModel = role === 'professional' ? 'Professional' : 'User';
+            const targetModel = role === 'professional' ? 'User' : 'Professional';
+
+            await axios.post('/api/reports', {
+                reporter: currentUserId,
+                reporterModel,
+                target: selectedContact._id,
+                targetModel,
+                reason: reportReason,
+                description: reportDescription
+            });
+
+            setReportSuccess(true);
+            setTimeout(() => {
+                setIsReportModalOpen(false);
+                setReportSuccess(false);
+                setReportReason('');
+                setReportDescription('');
+            }, 3000);
+        } catch (error) {
+            console.error('Report submission error:', error);
+            alert('Failed to submit report. Please try again.');
+        } finally {
+            setIsReporting(false);
+        }
+    };
 
     const currentUserId = localStorage.getItem('userId');
     const userName = localStorage.getItem('userName') || 'User';
@@ -463,6 +506,15 @@ export default function MessagePage() {
                                                     >
                                                         <Search size={16} /> View Profile
                                                     </button>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setIsMoreMenuOpen(false);
+                                                            setIsReportModalOpen(true);
+                                                        }}
+                                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                                                    >
+                                                        <AlertTriangle size={16} /> Report User
+                                                    </button>
                                                     <button className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-3">
                                                         <Star size={16} /> Star Conversation
                                                     </button>
@@ -525,25 +577,49 @@ export default function MessagePage() {
                                                                     : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'}
                                                             `}>
                                                                 {msg.attachments?.length > 0 && (
-                                                                    <div className="mb-2 space-y-2">
-                                                                        {msg.attachments.map((att, i) => (
-                                                                            <a 
-                                                                                key={i}
-                                                                                href={att.url} 
-                                                                                target="_blank" 
-                                                                                rel="noopener noreferrer"
-                                                                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isMe ? 'bg-orange-700/50 border-orange-500/50 hover:bg-orange-700' : 'bg-gray-50 border-gray-100 hover:bg-gray-100'} no-underline`}
-                                                                            >
-                                                                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isMe ? 'bg-orange-500' : 'bg-white shadow-sm'}`}>
-                                                                                    <FileText size={20} className={isMe ? 'text-white' : 'text-orange-600'} />
-                                                                                </div>
-                                                                                <div className="flex-1 min-w-0 pr-4">
-                                                                                    <p className={`text-xs font-bold truncate ${isMe ? 'text-white' : 'text-gray-900'}`}>{att.filename}</p>
-                                                                                    <p className={`text-[10px] ${isMe ? 'text-orange-200' : 'text-gray-400'}`}>{(att.fileSize / 1024 / 1024).toFixed(2)} MB</p>
-                                                                                </div>
-                                                                                <Download size={16} className={isMe ? 'text-orange-200' : 'text-gray-400'} />
-                                                                            </a>
-                                                                        ))}
+                                                                    <div className="mb-3 space-y-3">
+                                                                        {msg.attachments.map((att, i) => {
+                                                                            const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.filename) || att.mimetype?.startsWith('image/');
+                                                                            const fileUrl = att.url.startsWith('http') ? att.url : `/${att.url.replace(/\\/g, '/')}`;
+
+                                                                            if (isImage) {
+                                                                                return (
+                                                                                    <div 
+                                                                                        key={i} 
+                                                                                        className="relative group cursor-pointer overflow-hidden rounded-2xl border border-gray-100 shadow-sm"
+                                                                                        onClick={() => setPreviewImage({ url: fileUrl, name: att.filename })}
+                                                                                    >
+                                                                                        <img 
+                                                                                            src={fileUrl} 
+                                                                                            alt={att.filename} 
+                                                                                            className="w-full h-auto max-h-64 object-cover hover:scale-105 transition-transform duration-500" 
+                                                                                        />
+                                                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                                                            <Plus className="text-white opacity-0 group-hover:opacity-100 scale-50 group-hover:scale-100 transition-all" size={32} />
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            }
+
+                                                                            return (
+                                                                                <a 
+                                                                                    key={i}
+                                                                                    href={fileUrl} 
+                                                                                    target="_blank" 
+                                                                                    rel="noopener noreferrer"
+                                                                                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isMe ? 'bg-orange-700/50 border-orange-500/50 hover:bg-orange-700' : 'bg-gray-50 border-gray-100 hover:bg-gray-100'} no-underline`}
+                                                                                >
+                                                                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isMe ? 'bg-orange-500' : 'bg-white shadow-sm'}`}>
+                                                                                        <FileText size={20} className={isMe ? 'text-white' : 'text-orange-600'} />
+                                                                                    </div>
+                                                                                    <div className="flex-1 min-w-0 pr-4">
+                                                                                        <p className={`text-xs font-bold truncate ${isMe ? 'text-white' : 'text-gray-900'}`}>{att.filename}</p>
+                                                                                        <p className={`text-[10px] ${isMe ? 'text-orange-200' : 'text-gray-400'}`}>{(att.fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                                                                                    </div>
+                                                                                    <Download size={16} className={isMe ? 'text-orange-200' : 'text-gray-400'} />
+                                                                                </a>
+                                                                            );
+                                                                        })}
                                                                     </div>
                                                                 )}
                                                                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
@@ -708,6 +784,141 @@ export default function MessagePage() {
                                     </button>
                                 </div>
                             </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {previewImage && (
+                    <div 
+                        className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+                        onClick={() => setPreviewImage(null)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="relative max-w-5xl w-full flex flex-col items-center"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button 
+                                onClick={() => setPreviewImage(null)}
+                                className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
+                            >
+                                <X size={32} />
+                            </button>
+                            <img 
+                                src={previewImage.url} 
+                                alt={previewImage.name} 
+                                className="w-full h-auto max-h-[80vh] object-contain rounded-xl shadow-2xl"
+                            />
+                            <p className="mt-6 text-white font-medium text-lg">{previewImage.name}</p>
+                            <a 
+                                href={previewImage.url} 
+                                download={previewImage.name}
+                                className="mt-4 px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/20 transition-all flex items-center gap-2"
+                            >
+                                <Download size={18} /> Download Original
+                            </a>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Report Modal */}
+            <AnimatePresence>
+                {isReportModalOpen && (
+                    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsReportModalOpen(false)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-md bg-white rounded-[32px] shadow-2xl overflow-hidden z-10"
+                        >
+                            {reportSuccess ? (
+                                <div className="p-12 text-center">
+                                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-600">
+                                        <Check size={40} />
+                                    </div>
+                                    <h3 className="text-2xl font-black text-slate-900 mb-2">Report Submitted</h3>
+                                    <p className="text-slate-500 font-medium leading-relaxed">
+                                        Thank you for your report. Our team will review the conversation and take appropriate action.
+                                    </p>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleReportUser} className="p-8">
+                                    <div className="flex items-center justify-between mb-8">
+                                        <div>
+                                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Report User</h3>
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Help us maintain a safe community</p>
+                                        </div>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setIsReportModalOpen(false)}
+                                            className="p-2 bg-slate-100 text-slate-400 hover:text-slate-900 rounded-xl transition-all"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Reason for Report</label>
+                                            <select 
+                                                required
+                                                value={reportReason}
+                                                onChange={(e) => setReportReason(e.target.value)}
+                                                className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-900 font-bold focus:ring-2 focus:ring-rose-500 transition-all outline-none"
+                                            >
+                                                <option value="">Select a reason</option>
+                                                <option value="Inappropriate Behavior">Inappropriate Behavior</option>
+                                                <option value="Harassment">Harassment</option>
+                                                <option value="Fraud or Scam">Fraud or Scam</option>
+                                                <option value="Payment Issues">Payment Issues</option>
+                                                <option value="Safety Concerns">Safety Concerns</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Details</label>
+                                            <textarea 
+                                                required
+                                                rows="4"
+                                                value={reportDescription}
+                                                onChange={(e) => setReportDescription(e.target.value)}
+                                                placeholder="Please provide more context about the issue..."
+                                                className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-900 font-medium focus:ring-2 focus:ring-rose-500 transition-all outline-none resize-none"
+                                            />
+                                        </div>
+
+                                        <div className="flex gap-3 pt-2">
+                                            <button 
+                                                type="submit"
+                                                disabled={isReporting}
+                                                className="flex-1 py-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isReporting ? 'Submitting...' : 'Submit Report'}
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setIsReportModalOpen(false)}
+                                                className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            )}
                         </motion.div>
                     </div>
                 )}

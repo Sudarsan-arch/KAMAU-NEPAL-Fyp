@@ -226,7 +226,7 @@ const HomePage = () => {
                 {isLoggedIn ? (
                   <>
                     <button
-                      onClick={() => navigate('/dashboard')}
+                      onClick={() => navigate(localStorage.getItem('userRole') === 'admin' ? '/admin/dashboard' : '/dashboard')}
                       className="flex items-center gap-3 bg-white border border-slate-100 px-3 py-1.5 rounded-xl shadow-sm hover:shadow-md"
                     >
                       <div className="h-8 w-8 rounded-full overflow-hidden">
@@ -240,7 +240,9 @@ const HomePage = () => {
                       </div>
                       <div className="text-left">
                         <div className="text-xs font-bold text-slate-900 leading-none">{userName}</div>
-                        <div className="text-[11px] text-slate-400">{t('dashboard')}</div>
+                        <div className="text-[11px] text-slate-400">
+                          {localStorage.getItem('userRole') === 'admin' ? 'Admin Panel' : t('dashboard')}
+                        </div>
                       </div>
                     </button>
 
@@ -275,7 +277,16 @@ const HomePage = () => {
             <div className="flex flex-col gap-3 pt-2">
               {isLoggedIn ? (
                 <>
-                  <Button className="w-full" variant="secondary" onClick={() => { navigate('/dashboard'); setMobileMenuOpen(false); }}>User Dashboard</Button>
+                  <Button 
+                    className="w-full" 
+                    variant="secondary" 
+                    onClick={() => { 
+                      navigate(localStorage.getItem('userRole') === 'admin' ? '/admin/dashboard' : '/dashboard'); 
+                      setMobileMenuOpen(false); 
+                    }}
+                  >
+                    {localStorage.getItem('userRole') === 'admin' ? 'Admin Dashboard' : 'User Dashboard'}
+                  </Button>
 
                   <Button className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300" variant="outline" onClick={() => { handleLogout(); setMobileMenuOpen(false); }}>
                     Log Out
@@ -421,7 +432,7 @@ const HomePage = () => {
                 </div>
               ) : professionals.length > 0 ? (
                 professionals.map((p) => (
-                  <div key={p._id} className="group bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 hover:shadow-2xl transition-all duration-300 flex flex-col relative overflow-hidden h-full">
+                  <div key={p._id} className="group bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 hover:border-teal-500 transition-all duration-300 flex flex-col relative overflow-hidden h-full">
                     <div className="absolute top-0 left-0 w-full h-2 bg-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="flex justify-between items-start mb-6">
                       <div className="w-16 h-16 rounded-2xl bg-teal-50 shadow-inner overflow-hidden relative">

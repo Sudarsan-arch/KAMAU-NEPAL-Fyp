@@ -5,9 +5,12 @@ import axios from "axios";
 import api from "../services/apiInstance";
 import { useGoogleLogin } from '@react-oauth/google';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { useTranslation } from "../utils/LanguageContext";
 
 
 const Login = () => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", password: "", rememberMe: false });
   const [bookingDialog, setBookingDialog] = useState({ open: false, title: '', message: '', type: '' });
   const [message, setMessage] = useState("");
@@ -76,18 +79,13 @@ const Login = () => {
       if (err.message === "Network Error" || !err.response) {
         setMessage("Cannot connect to server. Make sure backend is running on port 5001");
       } else if (err.response?.status === 404) {
-        setMessage("User not found. Please sign up first.");
+        setMessage(t('user_not_found') || "User not found. Please sign up first.");
       } else if (err.response?.status === 401) {
-        setMessage("Email not verified. Please verify OTP first.");
+        setMessage(t('email_not_verified') || "Email not verified. Please verify OTP first.");
       } else if (err.response?.data?.message) {
         setMessage(err.response.data.message);
-        // after successful status update, show dialog
-        if (newStatus === 'Accepted') {
-          setBookingDialog({ open: true, title: t('booking_accepted'), message: t('booking_success_message'), type: 'success' });
-        } else if (newStatus === 'Rejected') {
-          setBookingDialog({ open: true, title: t('booking_rejected'), message: t('booking_failure_message'), type: 'danger' });
-        }
-        setRefetchTrigger(prev => prev + 1);error. Please try again.");
+      } else {
+        setMessage(t('login_failed') || "Login failed. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -134,7 +132,8 @@ const Login = () => {
     console.log(`Social provider not fully integrated: ${provider}`);
     alert(`${provider} login is coming soon!`);
   };
-
+  return (
+    <>
         <ConfirmDialog
           isOpen={successDialog.open}
           onClose={() => setSuccessDialog({ ...successDialog, open: false })}
@@ -282,6 +281,7 @@ const Login = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

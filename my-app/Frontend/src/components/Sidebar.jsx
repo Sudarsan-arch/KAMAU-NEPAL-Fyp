@@ -60,7 +60,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
         { id: "bookings", label: t('my_bookings'), icon: Calendar, route: "/my-bookings" },
         { id: "messages", label: t('messages'), icon: MessageSquare, route: "/messages", badge: 3 },
         { id: "history", label: t('history'), icon: TrendingUp, route: "/services-history" },
-        { id: "payments", label: t('payments'), icon: CreditCard },
+    
     ];
 
     const adminItems = [

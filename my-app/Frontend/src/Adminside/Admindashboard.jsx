@@ -21,7 +21,9 @@ import {
   Download,
   Trash2,
   CheckCircle2,
-  TrendingUp
+  TrendingUp,
+  AlertTriangle,
+  ShieldAlert
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -54,9 +56,13 @@ const AdminDashboard = () => {
   const [analyticsData, setAnalyticsData] = useState(null);
   const [categoryData, setCategoryData] = useState([]);
   const [statusData, setStatusData] = useState([]);
+  const [reports, setReports] = useState([]);
 
   // Modal States
   const [selectedProfessional, setSelectedProfessional] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [adminReportNote, setAdminReportNote] = useState('');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -139,6 +145,9 @@ const AdminDashboard = () => {
           }
           setStatusData(formatted);
         }
+      } else if (activeTab === 'reports') {
+        const response = await adminService.getReports();
+        if (response.success) setReports(response.data);
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -201,6 +210,7 @@ const AdminDashboard = () => {
       ['Username', `@${professional.username}`],
       ['Email Address', professional.email],
       ['Phone Number', professional.phone],
+      ['Gender', professional.gender || 'Not specified'],
       ['Status', professional.verificationStatus.toUpperCase()]
     ];
 
@@ -374,6 +384,7 @@ const AdminDashboard = () => {
     { id: 'professionals', label: 'Professionals', icon: Shield, badge: null },
     { id: 'users', label: 'Total Users', icon: Users, badge: null },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp, badge: null },
+    { id: 'reports', label: 'Reports', icon: ShieldAlert, badge: null },
     { id: 'broadcast', label: 'Broadcast', icon: MessageSquare, badge: null },
   ];
 
@@ -942,6 +953,92 @@ const AdminDashboard = () => {
               </section>
             </div>
           )}
+          
+          {activeTab === 'reports' && (
+            <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <section>
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                  <div>
+                    <h1 className="text-4xl font-black tracking-tight mb-2 text-slate-900">Safety Reports</h1>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Manage platform integrity and user disputes</p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-[48px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                          <th className="py-8 pl-10">Reporter</th>
+                          <th className="py-8">Target</th>
+                          <th className="py-8">Reason</th>
+                          <th className="py-8">Status</th>
+                          <th className="py-8 text-right pr-10">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {reports.length === 0 ? (
+                          <tr><td colSpan={5} className="py-24 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No active reports found</td></tr>
+                        ) : (
+                          reports.map((report) => (
+                            <tr key={report._id} className="hover:bg-slate-50 transition-all">
+                              <td className="py-7 pl-10">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 text-xs font-black">
+                                    {report.reporterModel.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-black text-slate-900">{report.reporter?.firstName || 'Unknown'} {report.reporter?.lastName || ''}</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{report.reporterModel}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-7">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center text-rose-500 text-xs font-black">
+                                    {report.targetModel.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-black text-slate-900">{report.target?.firstName || 'Deleted'} {report.target?.lastName || ''}</p>
+                                    <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest">{report.targetModel}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-7">
+                                <p className="text-sm font-bold text-slate-700">{report.reason}</p>
+                                <p className="text-[10px] text-slate-400 font-medium truncate max-w-[200px]">{report.description}</p>
+                              </td>
+                              <td className="py-7">
+                                <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
+                                  report.status === 'Pending' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                                  report.status === 'Resolved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                  'bg-slate-50 text-slate-400 border-slate-100'
+                                }`}>
+                                  {report.status}
+                                </span>
+                              </td>
+                              <td className="py-7 pr-10 text-right">
+                                <button 
+                                  onClick={() => {
+                                    setSelectedReport(report);
+                                    setAdminReportNote(report.adminNotes || '');
+                                    setShowReportModal(true);
+                                  }}
+                                  className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-teal-600 transition-all shadow-md"
+                                >
+                                  Review
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+               </section>
+            </div>
+          )}
         </div>
       </main>
 
@@ -1016,6 +1113,10 @@ const AdminDashboard = () => {
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Hourly Wage</p>
                   <p className="font-bold text-slate-900">रू {selectedProfessional.hourlyWage}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Gender</p>
+                  <p className="font-bold text-slate-900">{selectedProfessional.gender || 'Not specified'}</p>
                 </div>
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Service Done</p>
@@ -1202,7 +1303,7 @@ const AdminDashboard = () => {
                 >
                   {isSubmitting ? 'Processing...' : 'Confirm Rejection'}
                 </button>
-                <button 
+              <button 
                   onClick={() => setShowRejectionModal(false)}
                   disabled={isSubmitting}
                   className="w-full py-4 bg-slate-50 text-slate-600 rounded-[20px] font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-100 transition-all"
@@ -1224,6 +1325,89 @@ const AdminDashboard = () => {
         confirmText={confirmDialog.confirmText}
         type={confirmDialog.type}
       />
+
+        {/* Report Review Modal */}
+        {showReportModal && selectedReport && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setShowReportModal(false)}></div>
+            <div className="relative bg-white w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-rose-50/50">
+                <div className="flex items-center gap-4 text-rose-600">
+                  <ShieldAlert size={32} />
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 leading-tight">Report Review</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-rose-500 mt-0.5">Reference ID: #{selectedReport._id.slice(-6).toUpperCase()}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowReportModal(false)} className="p-3 text-slate-400 hover:text-slate-900 hover:bg-white rounded-2xl transition-all shadow-sm"><X size={20} /></button>
+              </div>
+
+              <div className="p-10 space-y-8 overflow-y-auto max-h-[70vh]">
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Reporter ({selectedReport.reporterModel})</p>
+                    <p className="font-black text-slate-900">{selectedReport.reporter?.firstName} {selectedReport.reporter?.lastName}</p>
+                    <p className="text-xs text-slate-500 mt-1">{selectedReport.reporter?.email}</p>
+                  </div>
+                  <div className="p-6 bg-rose-50/30 rounded-3xl border border-rose-100">
+                    <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-3">Reported ({selectedReport.targetModel})</p>
+                    <p className="font-black text-slate-900">{selectedReport.target?.firstName} {selectedReport.target?.lastName}</p>
+                    <p className="text-xs text-slate-500 mt-1">{selectedReport.target?.email}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Incident Details</p>
+                  <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-3">
+                    <div className="flex items-center gap-2 text-rose-600">
+                      <AlertTriangle size={16} />
+                      <p className="text-sm font-black uppercase tracking-widest">{selectedReport.reason}</p>
+                    </div>
+                    <p className="text-slate-600 text-sm leading-relaxed">{selectedReport.description}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Administrator Notes</p>
+                  <textarea 
+                    value={adminReportNote}
+                    onChange={(e) => setAdminReportNote(e.target.value)}
+                    placeholder="Document your investigation or decision here..."
+                    className="w-full p-5 bg-slate-50 border border-slate-200 rounded-3xl text-sm font-medium focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none resize-none"
+                    rows="4"
+                  />
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex gap-4">
+                <button 
+                  onClick={async () => {
+                    try {
+                      await adminService.updateReportStatus(selectedReport._id, { status: 'Resolved', adminNotes: adminReportNote });
+                      setShowReportModal(false);
+                      fetchDashboardData();
+                    } catch (err) { alert('Action failed'); }
+                  }}
+                  className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                >
+                  Mark as Resolved
+                </button>
+                <button 
+                  onClick={async () => {
+                    try {
+                      await adminService.updateReportStatus(selectedReport._id, { status: 'Dismissed', adminNotes: adminReportNote });
+                      setShowReportModal(false);
+                      fetchDashboardData();
+                    } catch (err) { alert('Action failed'); }
+                  }}
+                  className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all shadow-lg"
+                >
+                  Dismiss Report
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 };

@@ -11,6 +11,7 @@ import reviewRoute from "./reviewRoute.js";
 import notificationRoute from "./notificationRoute.js";
 import messageRoute from "./messageRoute.js";
 import paymentRoute from "./paymentRoute.js";
+import reportRoute from "./reportRoute.js";
 import path from "path";
 
 dotenv.config();
@@ -51,6 +52,7 @@ app.use("/api/reviews", reviewRoute);
 app.use("/api/notifications", notificationRoute);
 app.use("/api/messages", messageRoute);
 app.use("/api/payments", paymentRoute);
+app.use("/api/reports", reportRoute);
 
 // Serve uploaded images with caching for better performance
 const oneYear = 31536000000;

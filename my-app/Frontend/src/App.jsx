@@ -18,6 +18,7 @@ import MessagePage from './Dashboardsection/message';
 import PaymentPage from './Dashboardsection/PaymentPage';
 import KhaltiVerify from './Dashboardsection/KhaltiVerify';
 import Admindashboard from './Adminside/Admindashboard';
+import AdminLogin from './Adminside/AdminLogin';
 import AdminPrivateRoute from './Adminside/AdminPrivateRoute';
 import ProfessionalDashboard from './serviceprovider/ProfessionalDashboard';
 import CompaniesPage from './Homepage/CompaniesPage';
@@ -47,6 +48,7 @@ const App = () => {
           <Route path="/help" element={<HelpCentre />} />
 
           {/* Admin Routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route
             path="/admin/dashboard"
             element={

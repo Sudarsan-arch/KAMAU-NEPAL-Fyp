@@ -531,6 +531,7 @@ router.get("/:userId/profile", async (req, res) => {
         email: user.email,
         phone: user.phone,
         location: user.location,
+        address: user.address,
         username: user.username,
         profileImage: user.profileImage,
         formattedAddress: user.formattedAddress,
