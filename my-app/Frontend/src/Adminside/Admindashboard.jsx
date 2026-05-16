@@ -14,6 +14,7 @@ import {
   Eye,
   Power,
   UserCheck,
+  DollarSign,
   Bell,
   MessageSquare,
   Orbit,
@@ -23,8 +24,10 @@ import {
   CheckCircle2,
   TrendingUp,
   AlertTriangle,
-  ShieldAlert
+  ShieldAlert,
+  ChevronLeft
 } from 'lucide-react';
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Logo from '../Logo';
@@ -56,7 +59,15 @@ const AdminDashboard = () => {
   const [analyticsData, setAnalyticsData] = useState(null);
   const [categoryData, setCategoryData] = useState([]);
   const [statusData, setStatusData] = useState([]);
+  const [liveStatusData, setLiveStatusData] = useState([]);
   const [reports, setReports] = useState([]);
+  const [revenueData, setRevenueData] = useState({ totalRevenue: 0, categoryRevenue: [], timeline: [] });
+
+  // Search and Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [reportStatusFilter, setReportStatusFilter] = useState('All');
 
   // Modal States
   const [selectedProfessional, setSelectedProfessional] = useState(null);
@@ -84,6 +95,15 @@ const AdminDashboard = () => {
     fetchDashboardData();
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (activeTab === 'professionals' || activeTab === 'requests') {
+      const delaySearch = setTimeout(() => {
+        fetchDashboardData();
+      }, 500);
+      return () => clearTimeout(delaySearch);
+    }
+  }, [searchTerm, filterCategory, filterStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
@@ -96,23 +116,41 @@ const AdminDashboard = () => {
         
         if (statsRes.success) setStats(statsRes.data);
         if (recentRes.success) setProfessionals(recentRes.data);
-      } else if (activeTab === 'requests') {
-        const response = await adminService.getPendingApplications();
-        if (response.success) setProfessionals(response.data);
-      } else if (activeTab === 'professionals') {
-        const response = await adminService.getAllProfessionalsForAdmin();
-        if (response.success) setProfessionals(response.data);
+      } else if (activeTab === 'professionals' || activeTab === 'requests') {
+        // Use search endpoint for professionals/requests if search or filters are active
+        if (searchTerm || filterCategory || filterStatus) {
+          const searchRes = await adminService.searchProfessionals({
+            search: searchTerm,
+            category: filterCategory,
+            status: activeTab === 'requests' ? 'pending' : (filterStatus || 'verified'),
+            limit: 50
+          });
+          if (searchRes.success) setProfessionals(searchRes.data);
+        } else {
+          const proRes = await adminService.getAllProfessionalsForAdmin({ 
+            status: activeTab === 'requests' ? 'pending' : 'verified',
+            limit: 50
+          });
+          if (proRes.success) setProfessionals(proRes.data);
+        }
       } else if (activeTab === 'users') {
         const response = await adminService.getAllUsers();
         if (response.success) setUsers(response.data);
       } else if (activeTab === 'analytics') {
-        const [analyticsRes, categoryRes, statusRes] = await Promise.all([
+        const [analyticsRes, categoryRes, statusRes, revenueRes] = await Promise.all([
           adminService.getAnalyticsData(),
           adminService.getCategoryDistribution(),
-          adminService.getStatusDistribution()
+          adminService.getStatusDistribution(),
+          adminService.getRevenueAnalytics()
         ]);
         
-        if (analyticsRes.success) setAnalyticsData(analyticsRes.data);
+        if (analyticsRes.success) {
+          setAnalyticsData(analyticsRes.data);
+          if (analyticsRes.data.liveStatusDistribution) {
+            setLiveStatusData(analyticsRes.data.liveStatusDistribution);
+          }
+        }
+        if (revenueRes.success) setRevenueData(revenueRes.data);
         if (categoryRes.success) {
           const rawData = categoryRes.data;
           let formatted = [];
@@ -336,8 +374,13 @@ const AdminDashboard = () => {
       title: "Security Logout",
       message: "Are you sure you want to sign out of the administrative session?",
       confirmText: "Sign Out Now",
-      onConfirm: () => {
-        adminLogout();
+      onConfirm: async () => {
+        try {
+          await adminLogout();
+        } catch (err) {
+          console.error("Logout failed:", err);
+        }
+        localStorage.clear();
         navigate('/login');
       },
       type: 'danger'
@@ -459,6 +502,13 @@ const AdminDashboard = () => {
         <header className="sticky top-0 z-40 bg-white/60 backdrop-blur-2xl border-b border-slate-100 px-10 py-6 flex items-center justify-between">
           <div className="flex items-center gap-6 lg:hidden">
             <button onClick={() => setSidebarOpen(true)} className="p-3 bg-slate-50 text-slate-600 rounded-2xl"><Menu size={22} /></button>
+            <button 
+                onClick={() => navigate(-1)}
+                className="p-3 bg-slate-50 text-slate-400 hover:text-teal-600 rounded-2xl transition-all"
+                title="Go Back"
+            >
+                <ChevronLeft size={22} />
+            </button>
             <Logo className="h-8 w-auto" isStatic={true} />
           </div>
 
@@ -584,14 +634,6 @@ const AdminDashboard = () => {
                                     <div>
                                       <p className="font-black text-slate-900 text-base flex items-center gap-2">
                                         {p.firstName} {p.lastName}
-                                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border flex items-center ${
-                                          p.liveStatus === 'Ongoing' ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                          p.liveStatus === 'Offline' ? 'bg-slate-100 text-slate-500 border-slate-200' :
-                                          'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                        }`}>
-                                          {(p.liveStatus === 'Active' || !p.liveStatus) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>}
-                                          {p.liveStatus || 'Active'}
-                                        </span>
                                       </p>
                                       <p className="text-[10px] text-teal-600 font-black uppercase tracking-widest mt-0.5 flex items-center gap-2">
                                         Partner ID: #{p._id.slice(-6).toUpperCase()}
@@ -665,6 +707,51 @@ const AdminDashboard = () => {
                     <h1 className="text-4xl font-black tracking-tight mb-2 text-slate-900">{activeTab === 'requests' ? 'Awaiting Verification' : 'Verified Professionals'}</h1>
                     <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Filter and manage service partner records</p>
                   </div>
+                  
+                  {/* Search and Filter UI */}
+                  <div className="flex flex-col sm:flex-row gap-4 items-center bg-white p-3 rounded-[32px] border border-slate-100 shadow-sm w-full md:w-auto">
+                    <div className="relative w-full sm:w-64">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="text" 
+                        placeholder="Search name, email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-2xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all border border-transparent"
+                      />
+                    </div>
+                    
+                    <select 
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="w-full sm:w-auto px-4 py-3 bg-slate-50 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 focus:outline-none transition-all border border-transparent cursor-pointer hover:bg-slate-100"
+                    >
+                      <option value="">All Categories</option>
+                      <option value="plumbing">Plumbing</option>
+                      <option value="electrical">Electrical</option>
+                      <option value="carpentry">Carpentry</option>
+                      <option value="cleaning">Cleaning</option>
+                      <option value="painting">Painting</option>
+                      <option value="gardening">Gardening</option>
+                      <option value="mechanic">Mechanic</option>
+                      <option value="tutoring">Tutoring</option>
+                      <option value="freelancer">Freelancer</option>
+                      <option value="graphic_designer">Designer</option>
+                      <option value="developer">Developer</option>
+                    </select>
+
+                    {activeTab === 'professionals' && (
+                      <select 
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="w-full sm:w-auto px-4 py-3 bg-slate-50 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 focus:outline-none transition-all border border-transparent cursor-pointer hover:bg-slate-100"
+                      >
+                        <option value="verified">Verified</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="pending">Pending</option>
+                      </select>
+                    )}
+                  </div>
                 </div>
 
                 <div className="bg-white p-10 rounded-[48px] border border-slate-100 shadow-xl shadow-slate-200/40">
@@ -704,14 +791,6 @@ const AdminDashboard = () => {
                                   <div>
                                     <div className="font-black text-base flex items-center gap-2">
                                       {p.firstName} {p.lastName}
-                                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border flex items-center ${
-                                        p.liveStatus === 'Ongoing' ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                        p.liveStatus === 'Offline' ? 'bg-slate-100 text-slate-500 border-slate-200' :
-                                        'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                      }`}>
-                                        {(p.liveStatus === 'Active' || !p.liveStatus) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>}
-                                        {p.liveStatus || 'Active'}
-                                      </span>
                                     </div>
                                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5 flex items-center gap-2">
                                       {p.email}
@@ -949,6 +1028,120 @@ const AdminDashboard = () => {
                       </ResponsiveContainer>
                     </div>
                   </div>
+
+                  {/* Live Professional Tracking */}
+                  <div className="lg:col-span-2 bg-white p-10 rounded-[48px] border border-slate-100 shadow-xl shadow-slate-200/40">
+                    <div className="flex justify-between items-center mb-8">
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                         <Activity size={18} className="text-emerald-500" /> Live Professional Tracking
+                      </h3>
+                      <div className="flex gap-2">
+                        <span className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Free
+                        </span>
+                        <span className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Ongoing
+                        </span>
+                        <span className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Offline
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart 
+                          data={liveStatusData}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis 
+                            dataKey="status" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} 
+                            dy={10} 
+                          />
+                          <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} />
+                          <Tooltip 
+                             cursor={{fill: '#f8fafc'}}
+                             contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                          />
+                          <Bar dataKey="count" radius={[10, 10, 0, 0]} barSize={80}>
+                            {liveStatusData.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={
+                                  entry.status === 'Free' ? '#10b981' : 
+                                  entry.status === 'Ongoing' ? '#3b82f6' : 
+                                  '#cbd5e1'
+                                } 
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Revenue Analytics Section */}
+                  <div className="lg:col-span-2 space-y-10">
+                    <div className="flex items-center gap-4">
+                      <div className="h-px flex-1 bg-slate-100"></div>
+                      <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Revenue Analytics</h2>
+                      <div className="h-px flex-1 bg-slate-100"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                      {/* Revenue Timeline */}
+                      <div className="bg-white p-10 rounded-[48px] border border-slate-100 shadow-xl shadow-slate-200/40">
+                        <div className="flex justify-between items-start mb-8">
+                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                            <TrendingUp size={18} className="text-emerald-500" /> Revenue (Last 7 Days)
+                          </h3>
+                          <div className="text-right">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Revenue</p>
+                            <p className="text-xl font-black text-emerald-600">रू {revenueData.totalRevenue?.toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="h-[250px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={revenueData.timeline}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} dy={10} />
+                              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} />
+                              <Tooltip 
+                                contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                                formatter={(value) => [`रू ${value.toLocaleString()}`, 'Revenue']}
+                              />
+                              <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={4} dot={{ r: 6, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      {/* Revenue by Service */}
+                      <div className="bg-white p-10 rounded-[48px] border border-slate-100 shadow-xl shadow-slate-200/40">
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-8 flex items-center gap-3">
+                          <DollarSign size={18} className="text-blue-500" /> Revenue by Service
+                        </h3>
+                        <div className="h-[250px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={revenueData.categoryRevenue} layout="vertical">
+                              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                              <XAxis type="number" hide />
+                              <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} width={100} />
+                              <Tooltip 
+                                cursor={{fill: 'transparent'}}
+                                contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                                formatter={(value) => [`रू ${value.toLocaleString()}`, 'Revenue']}
+                              />
+                              <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </section>
             </div>
@@ -961,6 +1154,37 @@ const AdminDashboard = () => {
                   <div>
                     <h1 className="text-4xl font-black tracking-tight mb-2 text-slate-900">Safety Reports</h1>
                     <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Manage platform integrity and user disputes</p>
+                  </div>
+                  <div className="flex bg-slate-100 p-1.5 rounded-[20px] gap-1">
+                    {['All', 'Pending', 'Resolved', 'Dismissed'].map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => setReportStatusFilter(status)}
+                        className={`px-6 py-2.5 rounded-[14px] text-[10px] font-black uppercase tracking-widest transition-all ${
+                          reportStatusFilter === status 
+                            ? 'bg-white text-slate-900 shadow-md shadow-slate-200' 
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Report Tracking Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+                  <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/20">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Reports Received</p>
+                    <h3 className="text-3xl font-black text-slate-900">{reports.length}</h3>
+                  </div>
+                  <div className="bg-orange-50 p-8 rounded-[40px] border border-orange-100 shadow-xl shadow-orange-100/20">
+                    <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-2">Pending Investigation</p>
+                    <h3 className="text-3xl font-black text-orange-600">{reports.filter(r => r.status === 'Pending').length}</h3>
+                  </div>
+                  <div className="bg-emerald-50 p-8 rounded-[40px] border border-emerald-100 shadow-xl shadow-emerald-100/20">
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Successfully Resolved</p>
+                    <h3 className="text-3xl font-black text-emerald-600">{reports.filter(r => r.status === 'Resolved').length}</h3>
                   </div>
                 </div>
 
@@ -980,7 +1204,9 @@ const AdminDashboard = () => {
                         {reports.length === 0 ? (
                           <tr><td colSpan={5} className="py-24 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No active reports found</td></tr>
                         ) : (
-                          reports.map((report) => (
+                          reports
+                            .filter(r => reportStatusFilter === 'All' || r.status === reportStatusFilter)
+                            .map((report) => (
                             <tr key={report._id} className="hover:bg-slate-50 transition-all">
                               <td className="py-7 pl-10">
                                 <div className="flex items-center gap-3">
@@ -1024,9 +1250,11 @@ const AdminDashboard = () => {
                                     setAdminReportNote(report.adminNotes || '');
                                     setShowReportModal(true);
                                   }}
-                                  className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-teal-600 transition-all shadow-md"
+                                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md ${
+                                    report.status === 'Pending' ? 'bg-slate-900 text-white hover:bg-teal-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                  }`}
                                 >
-                                  Review
+                                  {report.status === 'Pending' ? 'Review' : 'View Details'}
                                 </button>
                               </td>
                             </tr>
@@ -1075,8 +1303,8 @@ const AdminDashboard = () => {
                       selectedProfessional.liveStatus === 'Offline' ? 'bg-slate-100 text-slate-500 border-slate-200' :
                       'bg-emerald-50 text-emerald-600 border-emerald-200'
                     }`}>
-                      {(selectedProfessional.liveStatus === 'Active' || !selectedProfessional.liveStatus) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>}
-                      {selectedProfessional.liveStatus || 'Active'}
+                      {(selectedProfessional.liveStatus === 'Free' || !selectedProfessional.liveStatus) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>}
+                      {selectedProfessional.liveStatus || 'Free'}
                     </span>
                     <span className="text-[10px] font-black text-teal-600 uppercase tracking-widest">@{selectedProfessional.username}</span>
                   </div>
@@ -1123,6 +1351,13 @@ const AdminDashboard = () => {
                   <p className="font-bold text-emerald-600 flex items-center gap-2">
                     <CheckCircle2 size={16} />
                     {selectedProfessional.completedJobs || 0} {selectedProfessional.completedJobs === 1 ? 'Service' : 'Services'} Completed
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-black text-rose-400 uppercase tracking-[0.2em]">Behavior Reports</p>
+                  <p className="font-bold text-rose-600 flex items-center gap-2">
+                    <AlertTriangle size={16} />
+                    {selectedProfessional.totalReports || 0} Reported {selectedProfessional.totalReports === 1 ? 'Incident' : 'Incidents'}
                   </p>
                 </div>
               </div>
@@ -1353,6 +1588,13 @@ const AdminDashboard = () => {
                     <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-3">Reported ({selectedReport.targetModel})</p>
                     <p className="font-black text-slate-900">{selectedReport.target?.firstName} {selectedReport.target?.lastName}</p>
                     <p className="text-xs text-slate-500 mt-1">{selectedReport.target?.email}</p>
+                    {selectedReport.targetModel === 'Professional' && (
+                      <div className="mt-3 pt-3 border-t border-rose-100">
+                        <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-1.5">
+                          <AlertTriangle size={10} /> Behavior History: {selectedReport.target?.totalReports || 0} Reports
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1379,32 +1621,62 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex gap-4">
-                <button 
-                  onClick={async () => {
-                    try {
-                      await adminService.updateReportStatus(selectedReport._id, { status: 'Resolved', adminNotes: adminReportNote });
-                      setShowReportModal(false);
-                      fetchDashboardData();
-                    } catch (err) { alert('Action failed'); }
-                  }}
-                  className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
-                >
-                  Mark as Resolved
-                </button>
-                <button 
-                  onClick={async () => {
-                    try {
-                      await adminService.updateReportStatus(selectedReport._id, { status: 'Dismissed', adminNotes: adminReportNote });
-                      setShowReportModal(false);
-                      fetchDashboardData();
-                    } catch (err) { alert('Action failed'); }
-                  }}
-                  className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all shadow-lg"
-                >
-                  Dismiss Report
-                </button>
-              </div>
+              {selectedReport.status === 'Pending' ? (
+                <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex flex-wrap gap-4">
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await adminService.updateReportStatus(selectedReport._id, { status: 'Resolved', adminNotes: adminReportNote });
+                        setShowReportModal(false);
+                        fetchDashboardData();
+                      } catch (err) { alert('Action failed'); }
+                    }}
+                    className="flex-1 min-w-[140px] py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                  >
+                    Mark as Resolved
+                  </button>
+
+                  {selectedReport.targetModel === 'Professional' && (
+                    <button 
+                      onClick={async () => {
+                        if (window.confirm(`Are you sure you want to block ${selectedReport.target?.firstName} for 3 days?`)) {
+                          try {
+                            await adminService.blockProfessional(selectedReport.target._id, 3);
+                            await adminService.updateReportStatus(selectedReport._id, { 
+                              status: 'Resolved', 
+                              adminNotes: `ACTION: BLOCKED FOR 3 DAYS. ${adminReportNote}` 
+                            });
+                            setShowReportModal(false);
+                            fetchDashboardData();
+                          } catch (err) { alert('Blocking failed'); }
+                        }
+                      }}
+                      className="flex-1 min-w-[140px] py-4 bg-rose-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-100"
+                    >
+                      Block (3 Days)
+                    </button>
+                  )}
+
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await adminService.updateReportStatus(selectedReport._id, { status: 'Dismissed', adminNotes: adminReportNote });
+                        setShowReportModal(false);
+                        fetchDashboardData();
+                      } catch (err) { alert('Action failed'); }
+                    }}
+                    className="flex-1 min-w-[140px] py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all shadow-lg"
+                  >
+                    Dismiss Report
+                  </button>
+                </div>
+              ) : (
+                <div className="p-8 border-t border-slate-100 bg-emerald-50/30 flex items-center justify-center">
+                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 flex items-center gap-2">
+                     <CheckCircle size={16} /> Resolution Finalized on {selectedReport.resolvedAt ? new Date(selectedReport.resolvedAt).toLocaleDateString() : 'recently'}
+                   </p>
+                </div>
+              )}
             </div>
           </div>
         )}

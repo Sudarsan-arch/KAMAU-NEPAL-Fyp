@@ -24,6 +24,7 @@ import {
     sendMessage, 
     uploadAttachment
 } from '../../services/messageService';
+import OptimizedImage from '../../components/OptimizedImage';
 import axios from 'axios';
 
 const ProfessionalMessages = () => {
@@ -107,6 +108,8 @@ const ProfessionalMessages = () => {
                 const hasUnread = response.data.some(m => !m.isRead && m.receiver._id === currentUserId);
                 if (hasUnread) {
                     fetchConversations();
+                    // Trigger global count refresh
+                    window.dispatchEvent(new Event('refreshUnreadCount'));
                 }
             }
         } catch (error) {
@@ -147,6 +150,8 @@ const ProfessionalMessages = () => {
                 setThread(prev => [...prev, tempMsg]);
                 setNewMessage('');
                 fetchConversations();
+                // Trigger global count refresh
+                window.dispatchEvent(new Event('refreshUnreadCount'));
             }
         } catch (error) {
             console.error('Failed to send message:', error);
@@ -395,7 +400,12 @@ const ProfessionalMessages = () => {
                                                 {isMe ? (
                                                     <div className="w-6 h-6 rounded-lg overflow-hidden border border-slate-200 shrink-0 mb-1">
                                                         {localStorage.getItem('userProfileImage') ? (
-                                                            <img src={localStorage.getItem('userProfileImage')} className="w-full h-full object-cover" alt="Me" />
+                                                            <OptimizedImage 
+                                                                src={localStorage.getItem('userProfileImage')} 
+                                                                className="w-full h-full" 
+                                                                alt="Me" 
+                                                                fallbackIcon={User}
+                                                            />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[10px] font-black">{localStorage.getItem('userName')?.charAt(0)}</div>
                                                         )}
@@ -403,10 +413,11 @@ const ProfessionalMessages = () => {
                                                 ) : (
                                                     <div className="w-6 h-6 rounded-lg bg-teal-50 border border-teal-100 overflow-hidden flex items-center justify-center shrink-0 mb-1">
                                                         {selectedContact.profileImage ? (
-                                                            <img 
-                                                                src={selectedContact.profileImage.startsWith('data:') ? selectedContact.profileImage : `/${selectedContact.profileImage.replace(/\\/g, '/')}`} 
-                                                                className="w-full h-full object-cover" 
+                                                            <OptimizedImage 
+                                                                src={selectedContact.profileImage} 
+                                                                className="w-full h-full" 
                                                                 alt={selectedContact.name} 
+                                                                fallbackIcon={User}
                                                             />
                                                         ) : (
                                                             <User size={12} className="text-teal-600" />

@@ -1,86 +1,81 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, Loader2 } from 'lucide-react';
 
 /**
- * OptimizedImage component for Kamau Nepal
- * - Handles base64, external, and internal paths
- * - Supports lazy loading
- * - Shows a loading skeleton while image is fetching
- * - Falls back to a default icon on error
+ * OptimizedImage Component
+ * Features:
+ * - Skeleton Loader while loading
+ * - Lazy loading (native)
+ * - Fallback for broken images
+ * - Smooth transition when loaded
+ * - Local caching support (via browser)
  */
 const OptimizedImage = ({ 
-  src, 
-  alt, 
-  className = '', 
-  fallbackIcon: FallbackIcon = UserCircle,
-  objectFit = 'cover'
+    src, 
+    alt, 
+    className = "", 
+    fallbackIcon: FallbackIcon = null,
+    placeholderColor = "bg-slate-100",
+    objectFit = "object-cover"
 }) => {
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(false);
+    const [currentSrc, setCurrentSrc] = useState(null);
 
-  // Normalize the source path
-  const getNormalizedSrc = () => {
-    if (!src) return null;
-    const trimmedSrc = src.toString().trim();
-    
-    // If it's already an absolute URL or a data URI, return as is
-    if (trimmedSrc.startsWith('data:') || trimmedSrc.startsWith('http')) {
-      return trimmedSrc;
-    }
-    
-    // For local paths, normalize slashes and ensure no leading slash
-    let cleanPath = trimmedSrc.replace(/\\/g, '/');
-    if (cleanPath.startsWith('/')) cleanPath = cleanPath.slice(1);
-    
-    // Encode parts but keep slashes
-    const encodedPath = cleanPath.split('/').map(encodeURIComponent).join('/');
-    
-    // Prepend a single leading slash
-    return '/' + encodedPath;
-  };
+    useEffect(() => {
+        if (!src) {
+            setError(true);
+            setIsLoading(false);
+            return;
+        }
 
-  const normalizedSrc = getNormalizedSrc();
+        // Reset state when src changes
+        setIsLoading(true);
+        setError(false);
 
-  useEffect(() => {
-    // Reset state when src changes
-    setLoaded(false);
-    setError(false);
-    
-    // Check if the image path is available and might be in cache
-    if (normalizedSrc) {
-      const img = new Image();
-      img.src = normalizedSrc;
-      if (img.complete) {
-        setLoaded(true);
-      }
-    }
-  }, [normalizedSrc]);
+        // Prepend base URL if it's a relative path starting with uploads/
+        let finalSrc = src;
+        if (typeof src === 'string' && src.startsWith('uploads/')) {
+            finalSrc = `/${src}`;
+        } else if (typeof src === 'string' && src.startsWith('Backend/uploads/')) {
+             finalSrc = `/${src.replace('Backend/', '')}`;
+        }
 
-  if (!normalizedSrc || error) {
+        setCurrentSrc(finalSrc);
+    }, [src]);
+
+    const handleLoad = () => {
+        setIsLoading(false);
+    };
+
+    const handleError = () => {
+        setIsLoading(false);
+        setError(true);
+    };
+
     return (
-      <div className={`bg-slate-100 flex items-center justify-center text-slate-400 ${className}`}>
-        <FallbackIcon size={className.includes('w-20') ? 48 : 24} />
-      </div>
-    );
-  }
+        <div className={`relative overflow-hidden ${className}`}>
+            {/* Skeleton / Placeholder */}
+            {isLoading && (
+                <div className={`absolute inset-0 ${placeholderColor} animate-pulse z-10`} />
+            )}
 
-  return (
-    <div className={`relative overflow-hidden ${className}`}>
-      {!loaded && (
-        <div className="absolute inset-0 bg-slate-100 animate-pulse flex items-center justify-center">
-          <Loader2 className="text-slate-200 animate-spin" size={24} />
+            {/* Error Fallback */}
+            {error ? (
+                <div className={`absolute inset-0 ${placeholderColor} flex items-center justify-center text-slate-300`}>
+                    {FallbackIcon ? <FallbackIcon size={24} /> : <span className="text-[10px] font-bold">No Image</span>}
+                </div>
+            ) : (
+                <img
+                    src={currentSrc}
+                    alt={alt}
+                    onLoad={handleLoad}
+                    onError={handleError}
+                    loading="lazy"
+                    className={`w-full h-full ${objectFit} transition-opacity duration-500 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+                />
+            )}
         </div>
-      )}
-      <img
-        src={normalizedSrc}
-        alt={alt}
-        className={`w-full h-full object-${objectFit} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={() => setLoaded(true)}
-        onError={() => setError(true)}
-        loading="lazy"
-      />
-    </div>
-  );
+    );
 };
 
 export default OptimizedImage;

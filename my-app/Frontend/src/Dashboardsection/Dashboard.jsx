@@ -16,13 +16,18 @@ import {
   Clock,
   DollarSign,
   CheckCircle,
+  UserCircle,
+  ChevronLeft,
 } from "lucide-react";
+
 import Logo from "../Logo";
 import { addTakenService } from "../services/storage";
 import { createBooking, getUserBookings } from "../bookingService";
 import NotificationsMenu from "../components/NotificationsMenu";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useTranslation } from "../utils/LanguageContext";
+import OptimizedImage from "../components/OptimizedImage";
+import { getUnreadCount } from "../services/messageService";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -39,6 +44,7 @@ const Dashboard = () => {
     onConfirm: () => {}, 
     type: 'danger' 
   });
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const openConfirm = (config) => {
     setConfirmDialog({ ...config, isOpen: true });
@@ -166,6 +172,30 @@ const Dashboard = () => {
     fetchBookingData();
   }, [userId]);
 
+  // Fetch unread messages count
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const response = await getUnreadCount();
+        if (response.success) {
+          setUnreadCount(response.count);
+        }
+      } catch (err) {
+        console.error("Error fetching unread count:", err);
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000); // Check every 30 seconds
+    
+    // Listen for custom refresh events
+    window.addEventListener('refreshUnreadCount', fetchUnread);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('refreshUnreadCount', fetchUnread);
+    };
+  }, []);
+
   const user = {
     name: userData.name,
     email: userData.email,
@@ -192,6 +222,7 @@ const Dashboard = () => {
       label: t('history'),
       value: bookingStats.servicesTaken.toString(),
       change: bookingStats.changeTaken,
+      changeLabel: 'This week',
       icon: Briefcase,
       color: "bg-blue-500",
     },
@@ -199,6 +230,7 @@ const Dashboard = () => {
       label: t('providers_met'), 
       value: bookingStats.providersMet.toString(), 
       change: bookingStats.changeMet, 
+      changeLabel: 'New',
       icon: Users, 
       color: "bg-green-500" 
     },
@@ -206,17 +238,20 @@ const Dashboard = () => {
       label: t('scheduled'),
       value: bookingStats.scheduled.toString(),
       change: bookingStats.changeScheduled,
+      changeLabel: bookingStats.changeScheduled === 'Active' ? '' : '',
       icon: Calendar,
       color: "bg-purple-500",
     },
     { 
       label: t('total_spent'), 
       value: `रू ${bookingStats.totalSpent.toLocaleString()}`, 
-      change: bookingStats.changeSpent, 
+      change: bookingStats.totalSpent > 0 ? 'Paid' : 'No spend',
+      changeLabel: '',
       icon: DollarSign, 
       color: "bg-orange-500" 
     },
   ];
+
 
   const [recentJobs, setRecentJobs] = useState([
     {
@@ -817,6 +852,13 @@ const Dashboard = () => {
               <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
                 {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
+              <button 
+                onClick={() => navigate(-1)}
+                className="p-2 bg-gray-50 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all"
+                title="Go Back"
+              >
+                <ChevronLeft size={20} />
+              </button>
               <button
                 onClick={handleLogoClick}
                 className="hover:opacity-80 transition cursor-pointer"
@@ -828,6 +870,8 @@ const Dashboard = () => {
             
 
             <div className="flex items-center gap-2 sm:gap-4">
+              
+
               <div className="relative">
                 <button 
                   onClick={() => setNotificationsOpen(!notificationsOpen)}
@@ -850,7 +894,12 @@ const Dashboard = () => {
               >
                 <div className="h-9 w-9 rounded-full overflow-hidden shadow-sm group-hover:shadow-md transition">
                   {userProfileImage ? (
-                    <img src={userProfileImage} alt={user.name} className="h-full w-full object-cover" />
+                    <OptimizedImage 
+                      src={userProfileImage} 
+                      alt={user.name} 
+                      className="h-full w-full" 
+                      fallbackIcon={UserCircle}
+                    />
                   ) : (
                     <div className="h-full w-full bg-gradient-to-tr from-orange-500 to-orange-400 flex items-center justify-center text-white font-bold">
                       {getInitials(user.name)}
@@ -894,22 +943,29 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
+              const isScheduled = stat.label === t('scheduled');
+              const isSpent = stat.label === t('total_spent');
+              const changeColor = isScheduled
+                ? stat.change === 'Active' ? 'text-purple-600 bg-purple-50' : 'text-gray-500 bg-gray-100'
+                : isSpent
+                ? stat.change === 'Paid' ? 'text-orange-600 bg-orange-50' : 'text-gray-400 bg-gray-100'
+                : 'text-green-600 bg-green-50';
               return (
                 <div key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition hover:shadow-md">
                   <div className="flex items-center justify-between mb-4">
                     <div className={`${stat.color} p-3 rounded-2xl shadow-inner`}>
                       <Icon size={24} className="text-white" />
                     </div>
-                    <div className="flex flex-col items-end">
-                      <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">{stat.change}</span>
-                      <span className="text-[10px] text-gray-400 mt-1">Status</span>
-                    </div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${changeColor}`}>
+                      {stat.change}
+                    </span>
                   </div>
                   <h3 className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</h3>
                   <p className="text-sm font-medium text-gray-500">{stat.label}</p>
                 </div>
               );
             })}
+
           </div>
 
         

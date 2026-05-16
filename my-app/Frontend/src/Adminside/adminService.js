@@ -87,6 +87,23 @@ export const getAllProfessionalsForAdmin = async (params = {}) => {
 };
 
 /**
+ * Search professionals with multiple filters
+ * @param {Object} params - Query parameters (search, status, category, area, page, limit)
+ * @returns {Promise} List of professionals with pagination
+ */
+export const searchProfessionals = async (params = {}) => {
+  try {
+    const response = await axiosInstance.get('/professionals/search', { params });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || {
+      success: false,
+      message: "Search failed"
+    };
+  }
+};
+
+/**
  * Get pending applications
  * @param {Object} params - Query parameters (page, limit)
  * @returns {Promise} List of pending applications
@@ -120,22 +137,6 @@ export const getApplicationDetails = async (id) => {
   }
 };
 
-/**
- * Search professionals with filters
- * @param {Object} params - Query parameters (search, status, category, area, page, limit)
- * @returns {Promise} Search results with pagination
- */
-export const searchProfessionals = async (params = {}) => {
-  try {
-    const response = await axiosInstance.get('/professionals/search', { params });
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || {
-      success: false,
-      message: "Search failed"
-    };
-  }
-};
 
 /**
  * Approve professional application
@@ -207,6 +208,22 @@ export const getStatusDistribution = async () => {
 };
 
 /**
+ * Get revenue analytics
+ * @returns {Promise} Revenue data (total, by category, timeline)
+ */
+export const getRevenueAnalytics = async () => {
+  try {
+    const response = await axiosInstance.get('/analytics/revenue');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || {
+      success: false,
+      message: "Failed to fetch revenue analytics"
+    };
+  }
+};
+
+/**
  * Export data
  * @param {Object} params - Query parameters (format: 'json'|'csv', status)
  * @returns {Promise} Exported data
@@ -273,6 +290,24 @@ export const deleteUser = async (id) => {
     throw error.response?.data || {
       success: false,
       message: "Failed to delete user"
+    };
+  }
+};
+
+/**
+ * Block a professional for a specific number of days
+ * @param {String} id - Professional ID
+ * @param {Number} days - Number of days to block
+ * @returns {Promise} Success message and updated data
+ */
+export const blockProfessional = async (id, days = 3) => {
+  try {
+    const response = await axiosInstance.patch(`/professionals/${id}/block`, { days });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || {
+      success: false,
+      message: "Failed to block professional"
     };
   }
 };
@@ -355,7 +390,9 @@ const adminServiceData = {
   deleteUser,
   deleteProfessional,
   getReports,
-  updateReportStatus
+  updateReportStatus,
+  getRevenueAnalytics,
+  blockProfessional,
 };
 
 export default adminServiceData;

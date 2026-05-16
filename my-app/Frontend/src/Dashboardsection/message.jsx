@@ -30,6 +30,7 @@ import {
 } from '../services/messageService';
 import { FileText, Download } from 'lucide-react';
 import axios from 'axios';
+import OptimizedImage from '../components/OptimizedImage';
 
 export default function MessagePage() {
     const navigate = useNavigate();
@@ -70,6 +71,25 @@ export default function MessagePage() {
     const [isReporting, setIsReporting] = useState(false);
     const [reportSuccess, setReportSuccess] = useState(false);
 
+    const handleOpenReportModal = async () => {
+        setIsMoreMenuOpen(false);
+        const role = localStorage.getItem('role');
+        if (role === 'user' && selectedContact) {
+            try {
+                const { checkUserBookingStatus } = await import('../bookingService');
+                const res = await checkUserBookingStatus(currentUserId, selectedContact._id);
+                if (!res.hasCompletedBooking) {
+                    alert('You can only report a professional after a service has been completed.');
+                    return;
+                }
+            } catch (err) {
+                console.error("Error checking report eligibility:", err);
+                // Fallback to allowing modal but backend will still catch it
+            }
+        }
+        setIsReportModalOpen(true);
+    };
+
     const handleReportUser = async (e) => {
         e.preventDefault();
         if (!reportReason || !reportDescription || !selectedContact) return;
@@ -98,7 +118,8 @@ export default function MessagePage() {
             }, 3000);
         } catch (error) {
             console.error('Report submission error:', error);
-            alert('Failed to submit report. Please try again.');
+            const msg = error.response?.data?.message || 'Failed to submit report. Please try again.';
+            alert(msg);
         } finally {
             setIsReporting(false);
         }
@@ -130,6 +151,8 @@ export default function MessagePage() {
                 setThread(response.data);
                 // After opening thread, refresh conversations to update unread badges
                 fetchConversations();
+                // Trigger global count refresh
+                window.dispatchEvent(new Event('refreshUnreadCount'));
             }
         } catch (error) {
             console.error('Error fetching thread:', error);
@@ -269,6 +292,8 @@ export default function MessagePage() {
                 setThread([...thread, tempMsg]);
                 setNewMessage('');
                 fetchConversations(); // Update list order
+                // Trigger global count refresh
+                window.dispatchEvent(new Event('refreshUnreadCount'));
             }
         } catch (error) {
             console.error('Failed to send message:', error);
@@ -507,10 +532,7 @@ export default function MessagePage() {
                                                         <Search size={16} /> View Profile
                                                     </button>
                                                     <button 
-                                                        onClick={() => {
-                                                            setIsMoreMenuOpen(false);
-                                                            setIsReportModalOpen(true);
-                                                        }}
+                                                        onClick={handleOpenReportModal}
                                                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
                                                     >
                                                         <AlertTriangle size={16} /> Report User
@@ -551,7 +573,12 @@ export default function MessagePage() {
                                                         {isMe ? (
                                                             <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 shrink-0 mb-1">
                                                                 {userProfileImage ? (
-                                                                    <img src={userProfileImage} className="w-full h-full object-cover" alt="Me" />
+                                                                    <OptimizedImage 
+                                                                        src={userProfileImage} 
+                                                                        className="w-full h-full" 
+                                                                        alt="Me" 
+                                                                        fallbackIcon={User}
+                                                                    />
                                                                 ) : (
                                                                     <div className="w-full h-full flex items-center justify-center bg-gray-100 text-xs font-bold">{userName?.charAt(0)}</div>
                                                                 )}
@@ -559,10 +586,11 @@ export default function MessagePage() {
                                                         ) : (
                                                             <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 shrink-0 mb-1">
                                                                 {selectedContact.profileImage ? (
-                                                                    <img 
-                                                                        src={selectedContact.profileImage.startsWith('data:') ? selectedContact.profileImage : `/${selectedContact.profileImage.replace(/\\/g, '/')}`} 
-                                                                        className="w-full h-full object-cover" 
+                                                                    <OptimizedImage 
+                                                                        src={selectedContact.profileImage} 
+                                                                        className="w-full h-full" 
                                                                         alt={selectedContact.name} 
+                                                                        fallbackIcon={User}
                                                                     />
                                                                 ) : (
                                                                     <div className="w-full h-full flex items-center justify-center bg-orange-50 text-orange-600 text-xs font-bold">{selectedContact.name?.charAt(0)}</div>
@@ -880,10 +908,16 @@ export default function MessagePage() {
                                             >
                                                 <option value="">Select a reason</option>
                                                 <option value="Inappropriate Behavior">Inappropriate Behavior</option>
+                                                <option value="Late arrival">Late Arrival</option>
+                                                <option value="Poor service">Poor Service</option>
+                                                <option value="Overcharging">Overcharging</option>
+                                                <option value="Fraud/scam">Fraud/Scam</option>
                                                 <option value="Harassment">Harassment</option>
-                                                <option value="Fraud or Scam">Fraud or Scam</option>
                                                 <option value="Payment Issues">Payment Issues</option>
                                                 <option value="Safety Concerns">Safety Concerns</option>
+                                                <option value="Fake Booking">Fake Booking</option>
+                                                <option value="No Show">No Show</option>
+                                                <option value="Unreasonable Demands">Unreasonable Demands</option>
                                                 <option value="Other">Other</option>
                                             </select>
                                         </div>

@@ -1,10 +1,11 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-    Home, Calendar, MessageSquare, TrendingUp, CreditCard,
+    Home, Calendar, MessageSquare, TrendingUp,
     Settings, HelpCircle, Briefcase, LogOut
 } from 'lucide-react';
 import { useTranslation } from '../utils/LanguageContext';
+import { getUnreadCount } from '../services/messageService';
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
     const navigate = useNavigate();
@@ -12,6 +13,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
     const { t } = useTranslation();
     const [professionalProfile, setProfessionalProfile] = React.useState(null);
     const [checkingProfessional, setCheckingProfessional] = React.useState(true);
+    const [unreadCount, setUnreadCount] = React.useState(0);
 
     // Check if user is a professional
     React.useEffect(() => {
@@ -42,6 +44,29 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
         checkProfessionalStatus();
     }, []);
 
+    // Fetch unread messages count
+    React.useEffect(() => {
+        const fetchUnreadCount = async () => {
+            try {
+                const response = await getUnreadCount();
+                if (response.success) {
+                    setUnreadCount(response.count);
+                }
+            } catch (err) {
+                console.error("Error fetching unread count:", err);
+            }
+        };
+
+        fetchUnreadCount();
+        const interval = setInterval(fetchUnreadCount, 30000); // Check every 30 seconds
+        
+        window.addEventListener('refreshUnreadCount', fetchUnreadCount);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('refreshUnreadCount', fetchUnreadCount);
+        };
+    }, []);
+
     // Detect active tab based on route
     const getActiveTab = () => {
         const path = location.pathname;
@@ -58,7 +83,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout }) => {
     const menuItems = [
         { id: "overview", label: t('dashboard'), icon: Home, route: "/dashboard" },
         { id: "bookings", label: t('my_bookings'), icon: Calendar, route: "/my-bookings" },
-        { id: "messages", label: t('messages'), icon: MessageSquare, route: "/messages", badge: 3 },
+        { id: "messages", label: t('messages'), icon: MessageSquare, route: "/messages", badge: unreadCount },
         { id: "history", label: t('history'), icon: TrendingUp, route: "/services-history" },
     
     ];

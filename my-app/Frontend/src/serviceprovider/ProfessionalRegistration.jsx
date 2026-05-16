@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect } from "react"
 import axios from "axios"
 import { useNavigate } from "react-router-dom"
+import toast from 'react-hot-toast'
 import {
-  ArrowLeft,
   CheckCircle2,
   User,
   Mail,
@@ -22,6 +22,9 @@ import {
   Plus,
   X,
 } from "lucide-react"
+import Logo from "../Logo"
+import BackButton from "../components/BackButton"
+
 
 const ProfessionalRegistration = () => {
   const navigate = useNavigate()
@@ -113,8 +116,8 @@ const ProfessionalRegistration = () => {
           });
           if (res.data && res.data.user) {
             const user = res.data.user;
-            const firstName = user.firstName || (user.name || '').split(' ')[0] || '';
-            const lastName = user.lastName || (user.name || '').split(' ').slice(1).join(' ') || '';
+            const firstName = (user.firstName || (user.name || '').split(' ')[0] || '').toUpperCase();
+            const lastName = (user.lastName || (user.name || '').split(' ').slice(1).join(' ') || '').toUpperCase();
             const email = user.email || '';
             const phone = user.phone || '';
             const username = user.username || '';
@@ -137,8 +140,8 @@ const ProfessionalRegistration = () => {
         } catch (err) {
           console.error("Failed to pre-populate registration form from API:", err);
           const name = localStorage.getItem('userName') || '';
-          const firstName = localStorage.getItem('firstName') || (name.split(' ')[0] || '');
-          const lastName = localStorage.getItem('lastName') || (name.split(' ').slice(1).join(' ') || '');
+          const firstName = (localStorage.getItem('firstName') || (name.split(' ')[0] || '')).toUpperCase();
+          const lastName = (localStorage.getItem('lastName') || (name.split(' ').slice(1).join(' ') || '')).toUpperCase();
           const email = localStorage.getItem('userEmail') || '';
           const phone = localStorage.getItem('userPhone') || '';
           const username = localStorage.getItem('username') || '';
@@ -217,6 +220,8 @@ const ProfessionalRegistration = () => {
       const cleaned = value.replace(/\D/g, '')
       const formatted = cleaned.slice(0, 10)
       setFormData(prev => ({ ...prev, [name]: formatted }))
+    } else if (name === "firstName" || name === "lastName") {
+      setFormData(prev => ({ ...prev, [name]: value.toUpperCase() }))
     } else {
       setFormData(prev => ({ ...prev, [name]: value }))
     }
@@ -323,12 +328,12 @@ const ProfessionalRegistration = () => {
     if (!file) return
 
     if (file.size > 30 * 1024 * 1024) {
-      alert("Image size should be less than 30MB")
+      toast.error("Image size should be less than 30MB")
       return
     }
 
     if (!file.type.startsWith('image/')) {
-      alert("Please upload an image file")
+      toast.error("Please upload an image file")
       return
     }
 
@@ -341,7 +346,7 @@ const ProfessionalRegistration = () => {
       setProfileImage(reader.result)
     }
     reader.onerror = () => {
-      alert("Failed to read image file")
+      toast.error("Failed to read image file")
     }
     reader.readAsDataURL(file)
   }
@@ -351,12 +356,12 @@ const ProfessionalRegistration = () => {
     if (!file) return
 
     if (file.size > 30 * 1024 * 1024) {
-      alert("Image size should be less than 30MB")
+      toast.error("Image size should be less than 30MB")
       return
     }
 
     if (!file.type.startsWith('image/')) {
-      alert("Please upload an image file")
+      toast.error("Please upload an image file")
       return
     }
 
@@ -376,13 +381,13 @@ const ProfessionalRegistration = () => {
 
     Array.from(files).forEach((file) => {
       if (file.size > 30 * 1024 * 1024) {
-        alert(`File ${file.name} is too large. Max size is 30MB`)
+        toast.error(`File ${file.name} is too large. Max size is 30MB`)
         return
       }
 
       const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
       if (!validTypes.includes(file.type)) {
-        alert(`File ${file.name} must be PDF, JPG, or PNG`)
+        toast.error(`File ${file.name} must be PDF, JPG, or PNG`)
         return
       }
 
@@ -419,7 +424,7 @@ const ProfessionalRegistration = () => {
     }
 
     if (documents.length === 0) {
-      alert("Please upload at least one verification document")
+      toast.error("Please upload at least one verification document")
       return
     }
 
@@ -465,7 +470,7 @@ const ProfessionalRegistration = () => {
       console.log('Response data:', data);
 
       if (!response.ok) {
-        alert(data.message || 'Registration failed. Please try again.')
+        toast.error(data.message || 'Registration failed. Please try again.')
         setIsSubmitting(false)
         return
       }
@@ -482,7 +487,7 @@ const ProfessionalRegistration = () => {
       window.scrollTo({ top: 0, behavior: "smooth" })
     } catch (error) {
       console.error('Registration error:', error)
-      alert("Registration failed. Please try again. Check console for details.")
+      toast.error("Registration failed. Please try again. Check console for details.")
       setIsSubmitting(false)
     }
   }
@@ -579,15 +584,13 @@ const ProfessionalRegistration = () => {
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        <button
-          onClick={() => window.history.back()}
-          className="group inline-flex items-center gap-2 text-slate-500 hover:text-orange-500 font-bold mb-6 sm:mb-8 transition-colors text-sm sm:text-base"
-        >
-          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-          Back to previous
-        </button>
+    <div className="bg-slate-50 min-h-screen py-8 sm:py-12 px-4 sm:px-6 lg:px-8 flex flex-col">
+      <div className="max-w-6xl mx-auto w-full">
+        <div className="flex items-center gap-4 mb-6 sm:mb-8">
+          <BackButton variant="simple" />
+          <Logo />
+        </div>
+
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           {/* Left Side: Info */}

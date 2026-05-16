@@ -4,48 +4,34 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import {
-    Search, MapPin, Briefcase, Clock, DollarSign,
-    Filter, X, BookmarkPlus, Share2, ChevronLeft,
-    ChevronRight, Star, CheckCircle2
+    Search, MapPin, Briefcase, DollarSign,
+    Filter, X, Share2, ChevronLeft,
+    ChevronRight, Star, CheckCircle2, MessageSquare,
+    Eye, TrendingUp, Award, Menu, User
 } from 'lucide-react';
-
-// --- Internal Helper: Button ---
-const Button = ({
-    children, variant = 'primary', size = 'md', className = '', ...props
-}) => {
-    const baseStyles = 'inline-flex items-center justify-center font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl';
-    const variants = {
-        primary: 'bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-500 shadow-md hover:shadow-lg transform hover:-translate-y-0.5',
-        secondary: 'bg-teal-600 text-white hover:bg-teal-700 focus:ring-teal-500 shadow-md hover:shadow-lg transform hover:-translate-y-0.5',
-        outline: 'border-2 border-slate-200 bg-transparent text-slate-700 hover:bg-slate-50 hover:border-slate-300 focus:ring-slate-400',
-        ghost: 'bg-transparent text-teal-600 hover:bg-teal-50 focus:ring-teal-200',
-        danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500 shadow-md'
-    };
-    const sizes = {
-        sm: 'px-3 py-1.5 text-sm',
-        md: 'px-5 py-2.5 text-base',
-        lg: 'px-8 py-3.5 text-lg',
-        icon: 'p-2'
-    };
-    return (
-        <button className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`} {...props}>
-            {children}
-        </button>
-    );
-};
+import Logo from '../Logo';
 
 const LOCATIONS = ['All Locations', 'Kathmandu', 'Lalitpur', 'Bhaktapur', 'Remote'];
-const JOB_TYPES = ['All Types', 'Full-time', 'Part-time', 'Contract'];
 const LEVELS = ['All Levels', 'Entry-level', 'Mid-level', 'Senior'];
-const JOBS_PER_PAGE = 5;
+const JOBS_PER_PAGE = 9;
+
+const CATEGORIES = [
+    { name: 'Carpentry', image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400', icon: '🔨' },
+    { name: 'Electrical', image: 'https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=400', icon: '⚡' },
+    { name: 'Plumbing', image: 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=400', icon: '🔧' },
+    { name: 'Painting', image: 'https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400', icon: '🎨' },
+    { name: 'Cleaning', image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400', icon: '🧹' },
+    { name: 'Gardening', image: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400', icon: '🌱' },
+];
 
 export default function ExploreJobs() {
     const navigate = useNavigate();
     const [professionals, setProfessionals] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
     const location = useLocation();
     const [searchQuery, setSearchQuery] = useState(location.state?.searchQuery || '');
+    const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
 
     // Initialize location filter from saved user location
     const [selectedLocation, setSelectedLocation] = useState(() => {
@@ -56,10 +42,7 @@ export default function ExploreJobs() {
         return "All Locations";
     });
 
-    const [selectedType, setSelectedType] = useState('All Types');
     const [selectedLevel, setSelectedLevel] = useState('All Levels');
-    const [showFilters, setShowFilters] = useState(false);
-    const [savedJobs, setSavedJobs] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
 
     // Fetch verified professionals
@@ -68,7 +51,7 @@ export default function ExploreJobs() {
             try {
                 setLoading(true);
                 const response = await axios.get('/api/professionals/', {
-                    params: { isVerified: true }
+                    params: { verificationStatus: 'verified' }
                 });
 
                 if (response.data.success) {
@@ -79,20 +62,21 @@ export default function ExploreJobs() {
                         company: `${p.firstName} ${p.lastName}`,
                         location: p.serviceArea ? p.serviceArea.charAt(0).toUpperCase() + p.serviceArea.slice(1) : 'Nepal',
                         salary: `रू ${p.hourlyWage}/hr`,
-                        type: 'Full-time', // Defaulting for now
+                        type: 'Full-time',
                         level: p.completedJobs > 10 ? 'Senior' : (p.completedJobs > 3 ? 'Mid-level' : 'Entry-level'),
                         skills: [p.serviceCategory, 'Reliable'],
                         posted: 'Recent',
                         description: p.bio || `Expert professional in ${p.serviceCategory} services available for hire.`,
                         profileImage: p.profileImage,
                         rating: p.rating || 0,
-                        reviews: p.totalReviews || 0
+                        reviews: p.totalReviews || 0,
+                        completedJobs: p.completedJobs || 0,
+                        isVerified: p.isVerified
                     }));
                     setProfessionals(mapped);
                 }
             } catch (err) {
                 console.error('Error fetching professionals:', err);
-                setError('Failed to load professionals. Please try again later.');
             } finally {
                 setLoading(false);
             }
@@ -106,12 +90,11 @@ export default function ExploreJobs() {
             const matchesSearch = job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 job.title.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesLocation = selectedLocation === 'All Locations' || job.location.toLowerCase().includes(selectedLocation.toLowerCase());
-            const matchesType = selectedType === 'All Types' || job.type === selectedType;
             const matchesLevel = selectedLevel === 'All Levels' || job.level === selectedLevel;
 
-            return matchesSearch && matchesLocation && matchesType && matchesLevel;
+            return matchesSearch && matchesLocation && matchesLevel;
         });
-    }, [searchQuery, selectedLocation, selectedType, selectedLevel, professionals]);
+    }, [searchQuery, selectedLocation, selectedLevel, professionals]);
 
     const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
     const paginatedJobs = useMemo(() => {
@@ -119,51 +102,207 @@ export default function ExploreJobs() {
         return filteredJobs.slice(startIndex, startIndex + JOBS_PER_PAGE);
     }, [filteredJobs, currentPage]);
 
-    const toggleSaveJob = (jobId) => {
-        setSavedJobs(prev =>
-            prev.includes(jobId) ? prev.filter(id => id !== jobId) : [...prev, jobId]
-        );
+    // Handle share functionality
+    const handleShare = async (job) => {
+        const shareData = {
+            title: `${job.company} - ${job.title}`,
+            text: `Check out ${job.company}, a verified ${job.title} professional in ${job.location}. Rate: ${job.salary}`,
+            url: `${window.location.origin}/professional/${job.id}`
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else {
+                // Fallback: Copy to clipboard
+                await navigator.clipboard.writeText(shareData.url);
+                alert('Profile link copied to clipboard!');
+            }
+        } catch (error) {
+            console.error('Error sharing:', error);
+        }
     };
 
-    const isJobSaved = (jobId) => savedJobs.includes(jobId);
+    // Handle message/chat functionality
+    const handleMessage = (job) => {
+        // Check if user is logged in
+        const userId = localStorage.getItem('userId');
+        if (!userId) {
+            alert('Please login to send messages');
+            navigate('/login');
+            return;
+        }
+        
+        // Navigate to messages page or open chat
+        // For now, we'll show an alert - you can implement actual messaging later
+        alert(`Opening chat with ${job.company}...`);
+        // navigate('/messages', { state: { professionalId: job.id } });
+    };
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="min-h-screen flex items-center justify-center bg-[#f5f7fb]">
             <div className="flex flex-col items-center gap-4">
-                <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Finding Professionals...</p>
+                <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-slate-600 font-semibold">Loading professionals...</p>
             </div>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-slate-50">
-            {/* Header */}
-            <div className="bg-white border-b border-slate-200 sticky top-0 z-40">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Explore Professionals</h1>
-                        <p className="text-slate-500 font-medium text-sm">Find top-rated local experts in Nepal</p>
+        <div className="min-h-screen bg-[#f5f7fb]">
+            {/* Modern Navbar */}
+            <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center h-16">
+                        {/* Logo */}
+                        <div className="flex items-center gap-8">
+                            <button onClick={() => navigate('/')} className="flex items-center gap-2 hover:opacity-80 transition">
+                                <Logo />
+                            </button>
+                            
+                            {/* Desktop Navigation */}
+                            <div className="hidden md:flex items-center gap-6">
+                                <button onClick={() => navigate('/')} className="text-gray-700 hover:text-teal-600 font-medium transition">
+                                    Services
+                                </button>
+                                <button className="text-teal-600 font-semibold">
+                                    Find a Pro
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Right Side */}
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={() => {
+                                    const userId = localStorage.getItem('userId');
+                                    if (userId) navigate('/dashboard');
+                                    else navigate('/login');
+                                }}
+                                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition"
+                            >
+                                <User size={20} className="text-gray-600" />
+                                <span className="text-sm font-medium text-gray-700">Profile</span>
+                            </button>
+                            
+                            {/* Mobile Menu Button */}
+                            <button 
+                                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                                className="md:hidden p-2 rounded-lg hover:bg-gray-100"
+                            >
+                                <Menu size={24} className="text-gray-700" />
+                            </button>
+                        </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => navigate('/')}>Back Home</Button>
+                </div>
+
+                {/* Mobile Menu */}
+                {showMobileMenu && (
+                    <div className="md:hidden border-t border-gray-200 bg-white">
+                        <div className="px-4 py-3 space-y-2">
+                            <button onClick={() => navigate('/')} className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                                Services
+                            </button>
+                            <button className="block w-full text-left px-4 py-2 text-teal-600 font-semibold bg-teal-50 rounded-lg">
+                                Find a Pro
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    const userId = localStorage.getItem('userId');
+                                    if (userId) navigate('/dashboard');
+                                    else navigate('/login');
+                                }}
+                                className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
+                            >
+                                Profile
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </nav>
+
+            {/* Hero Section */}
+            <div className="bg-gradient-to-br from-teal-50 via-white to-orange-50 py-12 sm:py-16">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-8">
+                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+                            Explore Top-Rated Professionals in Nepal
+                        </h1>
+                        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                            Find verified experts for all your service needs
+                        </p>
+                    </div>
+
+                    {/* Large Search Bar */}
+                    <div className="max-w-3xl mx-auto">
+                        <div className="relative group">
+                            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 z-10" size={24} />
+                            <input
+                                type="text"
+                                placeholder="Search by pro name or service category..."
+                                value={searchQuery}
+                                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                                className="w-full pl-16 pr-6 py-5 bg-white border-2 border-gray-200 rounded-2xl focus:border-teal-500 focus:outline-none shadow-lg hover:shadow-xl transition-all text-base font-medium text-gray-900 placeholder:text-gray-400"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Top Categories Section */}
+            <div className="bg-white py-12 border-b border-gray-200">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Popular Categories</h2>
+                    
+                    <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                        {CATEGORIES.map((category) => (
+                            <button
+                                key={category.name}
+                                onClick={() => { setSearchQuery(category.name); setCurrentPage(1); }}
+                                className="flex-shrink-0 w-48 h-32 rounded-xl overflow-hidden relative group cursor-pointer"
+                            >
+                                <img 
+                                    src={category.image} 
+                                    alt={category.name}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                                    <span className="text-3xl mb-2">{category.icon}</span>
+                                    <span className="font-bold text-lg">{category.name}</span>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
             {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-6 py-8">
-                <div className="flex flex-col md:flex-row gap-8">
-                    {/* Sidebar Filters */}
-                    <div className={`w-full md:w-64 flex-shrink-0 ${showFilters ? 'block' : 'hidden'} md:block transition-all`}>
-                        <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 p-8 sticky top-28">
-                            <div className="flex items-center justify-between mb-8">
-                                <h2 className="font-black text-lg text-slate-900 uppercase tracking-widest text-xs">Filter By</h2>
-                                <button onClick={() => setShowFilters(false)} className="md:hidden text-slate-400"><X size={20} /></button>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <div className="flex flex-col lg:flex-row gap-8">
+                    {/* Filters Sidebar */}
+                    <div className={`lg:w-64 flex-shrink-0 ${showFilters ? 'block' : 'hidden lg:block'}`}>
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-24">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                                    <Filter size={20} className="text-teal-600" />
+                                    Filters
+                                </h3>
+                                <button 
+                                    onClick={() => setShowFilters(false)} 
+                                    className="lg:hidden text-gray-400 hover:text-gray-600"
+                                >
+                                    <X size={20} />
+                                </button>
                             </div>
 
                             {/* Location Filter */}
-                            <div className="mb-8">
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Location</label>
-                                <div className="space-y-3">
+                            <div className="mb-6">
+                                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                                    <MapPin size={16} className="text-teal-600" />
+                                    Location
+                                </label>
+                                <div className="space-y-2">
                                     {LOCATIONS.map(location => (
                                         <label key={location} className="flex items-center gap-3 cursor-pointer group">
                                             <input
@@ -172,18 +311,23 @@ export default function ExploreJobs() {
                                                 value={location}
                                                 checked={selectedLocation === location}
                                                 onChange={(e) => { setSelectedLocation(e.target.value); setCurrentPage(1); }}
-                                                className="w-4 h-4 text-orange-500 focus:ring-orange-500 border-slate-300"
+                                                className="w-4 h-4 text-teal-600 focus:ring-teal-500 border-gray-300"
                                             />
-                                            <span className={`text-sm font-bold transition-colors ${selectedLocation === location ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-900'}`}>{location}</span>
+                                            <span className={`text-sm transition-colors ${selectedLocation === location ? 'text-teal-600 font-semibold' : 'text-gray-600 group-hover:text-gray-900'}`}>
+                                                {location}
+                                            </span>
                                         </label>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Level Filter */}
-                            <div className="mb-8">
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Experience</label>
-                                <div className="space-y-3">
+                            {/* Experience Filter */}
+                            <div className="mb-6">
+                                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                                    <Award size={16} className="text-teal-600" />
+                                    Experience
+                                </label>
+                                <div className="space-y-2">
                                     {LEVELS.map(level => (
                                         <label key={level} className="flex items-center gap-3 cursor-pointer group">
                                             <input
@@ -192,156 +336,235 @@ export default function ExploreJobs() {
                                                 value={level}
                                                 checked={selectedLevel === level}
                                                 onChange={(e) => { setSelectedLevel(e.target.value); setCurrentPage(1); }}
-                                                className="w-4 h-4 text-orange-500 focus:ring-orange-500 border-slate-300"
+                                                className="w-4 h-4 text-teal-600 focus:ring-teal-500 border-gray-300"
                                             />
-                                            <span className={`text-sm font-bold transition-colors ${selectedLevel === level ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-900'}`}>{level}</span>
+                                            <span className={`text-sm transition-colors ${selectedLevel === level ? 'text-teal-600 font-semibold' : 'text-gray-600 group-hover:text-gray-900'}`}>
+                                                {level}
+                                            </span>
                                         </label>
                                     ))}
                                 </div>
                             </div>
+
+                            {/* Clear Filters */}
+                            <button
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setSelectedLocation('All Locations');
+                                    setSelectedLevel('All Levels');
+                                    setCurrentPage(1);
+                                }}
+                                className="w-full py-2 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                            >
+                                Clear All
+                            </button>
                         </div>
                     </div>
 
-                    {/* Main Content Area */}
-                    <div className="flex-1 min-w-0">
-                        {/* Search Bar */}
-                        <div className="mb-8 relative group">
-                            <div className="absolute inset-0 bg-orange-500/5 rounded-3xl blur-xl group-focus-within:bg-orange-500/10 transition-all" />
-                            <div className="relative">
-                                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                                <input
-                                    type="text"
-                                    placeholder="Search by name or category..."
-                                    value={searchQuery}
-                                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                                    className="w-full pl-14 pr-6 py-5 bg-white border border-slate-100 rounded-[28px] focus:border-orange-500 focus:outline-none shadow-sm transition-all text-sm font-bold text-slate-900"
-                                />
-                            </div>
-                        </div>
-
+                    {/* Professional Cards Grid */}
+                    <div className="flex-1">
                         {/* Results Header */}
-                        <div className="flex items-center justify-between mb-6 px-2">
-                            <div className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                                Found <span className="text-orange-500">{filteredJobs.length}</span> verified professionals
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="text-sm text-gray-600">
+                                <span className="font-semibold text-gray-900">{filteredJobs.length}</span> professionals found
                             </div>
-                            <button onClick={() => setShowFilters(!showFilters)} className="md:hidden flex items-center gap-2 text-orange-500 font-bold text-xs uppercase tracking-widest">
-                                <Filter size={14} /> {showFilters ? 'Hide' : 'Show'} Filters
+                            <button 
+                                onClick={() => setShowFilters(!showFilters)} 
+                                className="lg:hidden flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                                <Filter size={16} />
+                                {showFilters ? 'Hide' : 'Show'} Filters
                             </button>
                         </div>
 
-                        {/* Professional Listings */}
-                        <div className="space-y-6">
-                            {paginatedJobs.length > 0 ? (
-                                paginatedJobs.map(job => (
-                                    <div key={job.id} className="group bg-white rounded-[32px] border border-slate-100 hover:border-orange-200 hover:shadow-2xl hover:shadow-orange-500/5 transition-all p-8 flex flex-col sm:flex-row gap-8 relative overflow-hidden">
-                                        <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                                        {/* Avatar Column */}
-                                        <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl bg-slate-50 flex-shrink-0 border border-slate-100 overflow-hidden shadow-inner">
+                        {/* Professional Cards */}
+                        {paginatedJobs.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+                                {paginatedJobs.map(job => (
+                                    <div 
+                                        key={job.id} 
+                                        className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group"
+                                    >
+                                        {/* Profile Image */}
+                                        <div className="relative h-32 bg-gradient-to-br from-teal-100 to-orange-100 overflow-hidden">
                                             {job.profileImage ? (
                                                 <img
                                                     src={job.profileImage.startsWith('http') ? job.profileImage : `/${job.profileImage}`}
                                                     alt={job.company}
-                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                                 />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-3xl">👨‍💼</div>
+                                                <div className="w-full h-full flex items-center justify-center text-4xl">
+                                                    👨‍💼
+                                                </div>
+                                            )}
+                                            {job.isVerified && (
+                                                <div className="absolute top-2 right-2 bg-teal-500 text-white px-1.5 py-0.5 rounded-full flex items-center gap-1 text-xs font-semibold">
+                                                    <CheckCircle2 size={12} />
+                                                    Verified
+                                                </div>
                                             )}
                                         </div>
 
-                                        {/* Content Column */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-start justify-between mb-4">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h3 className="text-xl font-black text-slate-900 group-hover:text-orange-600 transition-colors uppercase tracking-tight">{job.company}</h3>
-                                                        <CheckCircle2 size={16} className="text-teal-500 fill-teal-50" />
+                                        {/* Card Content */}
+                                        <div className="p-3">
+                                            {/* Name & Title */}
+                                            <div className="mb-2">
+                                                <h3 className="font-bold text-base text-gray-900 mb-0.5 line-clamp-1">
+                                                    {job.company}
+                                                </h3>
+                                                <p className="text-xs text-teal-600 font-medium">
+                                                    {job.title}
+                                                </p>
+                                            </div>
+
+                                            {/* Stats Row */}
+                                            <div className="flex items-center gap-3 mb-2 text-xs">
+                                                {job.completedJobs > 0 ? (
+                                                    <div className="flex items-center gap-1 text-gray-600">
+                                                        <TrendingUp size={12} className="text-teal-600" />
+                                                        <span className="font-medium">{job.completedJobs} jobs</span>
                                                     </div>
-                                                    <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{job.title}</p>
+                                                ) : (
+                                                    <div className="flex items-center gap-1 text-orange-600">
+                                                        <Award size={12} />
+                                                        <span className="font-medium">New Pro</span>
+                                                    </div>
+                                                )}
+                                                
+                                                {job.rating > 0 && (
+                                                    <div className="flex items-center gap-1">
+                                                        <Star size={12} className="text-yellow-400 fill-yellow-400" />
+                                                        <span className="font-semibold text-gray-900">{job.rating.toFixed(1)}</span>
+                                                        {job.reviews > 0 && (
+                                                            <span className="text-gray-500">({job.reviews})</span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Location & Price */}
+                                            <div className="space-y-1 mb-2">
+                                                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                                    <MapPin size={12} className="text-gray-400" />
+                                                    <span className="line-clamp-1">{job.location}</span>
                                                 </div>
+                                                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-900">
+                                                    <DollarSign size={12} className="text-teal-600" />
+                                                    <span>{job.salary}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Progress Bar */}
+                                            {job.completedJobs > 0 && (
+                                                <div className="mb-2">
+                                                    <div className="flex justify-between text-[10px] text-gray-600 mb-1">
+                                                        <span>Services Completed</span>
+                                                        <span className="font-semibold">{Math.min(job.completedJobs, 50)}/50</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                                        <div 
+                                                            className="bg-gradient-to-r from-teal-500 to-teal-600 h-1.5 rounded-full transition-all"
+                                                            style={{ width: `${Math.min((job.completedJobs / 50) * 100, 100)}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Action Buttons */}
+                                            <div className="space-y-1.5">
                                                 <button
-                                                    onClick={() => toggleSaveJob(job.id)}
-                                                    className={`p-3 rounded-2xl transition-all ${isJobSaved(job.id) ? 'bg-orange-100 text-orange-600' : 'bg-slate-50 text-slate-300 hover:bg-slate-100'}`}
-                                                >
-                                                    <BookmarkPlus size={20} className={isJobSaved(job.id) ? 'fill-orange-600' : ''} />
-                                                </button>
-                                            </div>
-
-                                            <p className="text-sm text-slate-500 leading-relaxed mb-6 font-medium line-clamp-2">
-                                                {job.description}
-                                            </p>
-
-                                            <div className="flex flex-wrap gap-4 mb-8">
-                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl text-xs font-black text-slate-600">
-                                                    <MapPin size={14} className="text-orange-500" /> {job.location}
-                                                </div>
-                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl text-xs font-black text-slate-600">
-                                                    <DollarSign size={14} className="text-orange-500" /> {job.salary}
-                                                </div>
-                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl text-xs font-black text-slate-600">
-                                                    <Star size={14} className="text-orange-500 fill-orange-500" /> {job.rating} ({job.reviews})
-                                                </div>
-                                            </div>
-
-                                            <div className="flex gap-4 items-center">
-                                                <Button
-                                                    variant="secondary"
-                                                    className="flex-1 sm:flex-none sm:px-12 rounded-2xl"
                                                     onClick={() => navigate(`/professional/${job.id}`)}
+                                                    className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition shadow-sm hover:shadow-md"
                                                 >
                                                     Book Now
-                                                </Button>
-                                                <Button variant="outline" className="flex-1 sm:flex-none rounded-2xl">
-                                                    <Share2 size={18} />
-                                                </Button>
+                                                </button>
+                                                <div className="grid grid-cols-3 gap-1.5">
+                                                    <button
+                                                        onClick={() => navigate(`/professional/${job.id}`)}
+                                                        className="py-1.5 px-2 border border-gray-300 rounded-lg text-[10px] font-medium text-gray-700 hover:bg-gray-50 transition flex items-center justify-center gap-1"
+                                                        title="View Portfolio"
+                                                    >
+                                                        <Eye size={12} />
+                                                        <span className="hidden sm:inline">Portfolio</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleMessage(job)}
+                                                        className="py-1.5 px-2 border border-gray-300 rounded-lg text-[10px] font-medium text-gray-700 hover:bg-gray-50 transition flex items-center justify-center gap-1"
+                                                        title="Send Message"
+                                                    >
+                                                        <MessageSquare size={12} />
+                                                        <span className="hidden sm:inline">Message</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleShare(job)}
+                                                        className="py-1.5 px-2 border border-gray-300 rounded-lg text-[10px] font-medium text-gray-700 hover:bg-gray-50 transition flex items-center justify-center gap-1"
+                                                        title="Share Profile"
+                                                    >
+                                                        <Share2 size={12} />
+                                                        <span className="hidden sm:inline">Share</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                ))
-                            ) : (
-                                <div className="bg-white rounded-[40px] border border-slate-100 p-20 text-center shadow-sm">
-                                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                                        <Briefcase size={32} className="text-slate-200" />
-                                    </div>
-                                    <h3 className="text-xl font-black text-slate-900 mb-2">No Professionals Found</h3>
-                                    <p className="text-slate-500 font-medium max-w-xs mx-auto">Try adjusting your filters or search terms to find what you're looking for.</p>
-                                    <Button variant="outline" className="mt-8 rounded-2xl" onClick={() => { setSearchQuery(''); setSelectedLocation('All Locations'); setSelectedLevel('All Levels'); }}>
-                                        Clear All Filters
-                                    </Button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Briefcase size={32} className="text-gray-400" />
                                 </div>
-                            )}
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">No Professionals Found</h3>
+                                <p className="text-gray-600 mb-6">Try adjusting your filters or search terms</p>
+                                <button
+                                    onClick={() => {
+                                        setSearchQuery('');
+                                        setSelectedLocation('All Locations');
+                                        setSelectedLevel('All Levels');
+                                        setCurrentPage(1);
+                                    }}
+                                    className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition"
+                                >
+                                    Clear All Filters
+                                </button>
+                            </div>
+                        )}
 
-                            {/* Pagination */}
-                            {totalPages > 1 && (
-                                <div className="flex items-center justify-center gap-3 pt-12 pb-20">
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-center gap-2 mt-8">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-2 rounded-lg border border-gray-300 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
+
+                                {[...Array(totalPages)].map((_, i) => (
                                     <button
-                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                        disabled={currentPage === 1}
-                                        className="p-3 rounded-2xl border border-slate-200 hover:bg-white disabled:opacity-30 transition-all"
+                                        key={i + 1}
+                                        onClick={() => setCurrentPage(i + 1)}
+                                        className={`w-10 h-10 rounded-lg font-semibold transition ${
+                                            currentPage === i + 1
+                                                ? 'bg-teal-600 text-white shadow-md'
+                                                : 'text-gray-600 hover:bg-white border border-gray-200'
+                                        }`}
                                     >
-                                        <ChevronLeft size={20} />
+                                        {i + 1}
                                     </button>
+                                ))}
 
-                                    {[...Array(totalPages)].map((_, i) => (
-                                        <button
-                                            key={i + 1}
-                                            onClick={() => setCurrentPage(i + 1)}
-                                            className={`w-12 h-12 rounded-2xl font-black transition-all ${currentPage === i + 1 ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/20 scale-110' : 'text-slate-400 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-100'}`}
-                                        >
-                                            {i + 1}
-                                        </button>
-                                    ))}
-
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                        disabled={currentPage === totalPages}
-                                        className="p-3 rounded-2xl border border-slate-200 hover:bg-white disabled:opacity-30 transition-all"
-                                    >
-                                        <ChevronRight size={20} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="p-2 rounded-lg border border-gray-300 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

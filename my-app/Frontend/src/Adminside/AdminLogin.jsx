@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Shield, 
@@ -10,11 +10,20 @@ import {
   Activity,
   Zap
 } from 'lucide-react';
-import { adminLogin } from './adminAuthService';
-import Logo from '../Logo';
+import { adminLogin, getStoredAdminUser } from './adminAuthService';
+import BackButton from '../components/BackButton';
+
 
 const AdminLogin = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const adminToken = localStorage.getItem('adminToken');
+    const adminUser = getStoredAdminUser();
+    if (adminToken || (adminUser && (adminUser.role === 'admin' || adminUser.role === 'super_admin'))) {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [navigate]);
   const [formData, setFormData] = useState({
     username: '',
     password: ''
@@ -59,18 +68,23 @@ const AdminLogin = () => {
       setLoading(false);
     }
   };
-
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Abstract Background Elements */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[120px] -mr-64 -mt-64 animate-pulse"></div>
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-orange-500/5 rounded-full blur-[120px] -ml-64 -mb-64"></div>
-      
-      <div className="w-full max-w-lg relative z-10">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center p-4 bg-white/5 backdrop-blur-xl rounded-[32px] border border-white/10 mb-8 group hover:scale-110 transition-all duration-500 cursor-pointer">
-            <Logo isStatic={true} className="h-10 w-auto" />
-          </div>
+    <div className="min-h-screen bg-slate-900 flex flex-col relative overflow-hidden">
+
+      <div className="p-6 flex items-center justify-between w-full relative z-20">
+        <div className="flex items-center gap-4">
+          <BackButton variant="simple" />
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-center p-4 relative z-10">
+        {/* Abstract Background Elements */}
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[120px] -mr-64 -mt-64 animate-pulse pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-orange-500/5 rounded-full blur-[120px] -ml-64 -mb-64 pointer-events-none"></div>
+
+        <div className="w-full max-w-lg relative z-10">
+          <div className="text-center mb-10">
+
+
           <h1 className="text-4xl font-black text-white tracking-tight mb-3">
             Admin <span className="text-teal-400">Terminal</span>
           </h1>
@@ -173,14 +187,16 @@ const AdminLogin = () => {
             </div>
           </div>
         </div>
-        
         <p className="mt-10 text-center text-slate-600 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
           Authorized personnel only. All access attempts are logged and monitored.<br />
           © 2025 Kamau Nepal System Administration
         </p>
+        </div>
       </div>
     </div>
   );
 };
+
+
 
 export default AdminLogin;

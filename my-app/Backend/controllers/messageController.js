@@ -234,3 +234,24 @@ export const getMessageThread = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+/**
+ * Get total unread messages count for the authenticated user
+ */
+export const getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const count = await Message.countDocuments({
+      receiver: userId,
+      receiverDeleted: false,
+      isRead: false
+    });
+
+    res.status(200).json({
+      success: true,
+      count
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

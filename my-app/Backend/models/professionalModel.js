@@ -138,6 +138,18 @@ const professionalSchema = new mongoose.Schema({
     startTime: { type: String, required: true },
     endTime: { type: String, required: true }
   }],
+  isBlocked: {
+    type: Boolean,
+    default: false
+  },
+  blockedUntil: {
+    type: Date,
+    default: null
+  },
+  totalReports: {
+    type: Number,
+    default: 0
+  },
   createdAt: {
     type: Date,
     default: Date.now

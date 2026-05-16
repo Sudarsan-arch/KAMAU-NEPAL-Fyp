@@ -4,19 +4,20 @@ import { Mail, Lock, ArrowRight } from "lucide-react";
 import axios from "axios";
 import api from "../services/apiInstance";
 import { useGoogleLogin } from '@react-oauth/google';
-import ConfirmDialog from '../components/ConfirmDialog';
 import { useTranslation } from "../utils/LanguageContext";
+import toast from 'react-hot-toast';
+import BackButton from '../components/BackButton';
+import Logo from '../Logo';
+
+
 
 
 const Login = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", password: "", rememberMe: false });
-  const [bookingDialog, setBookingDialog] = useState({ open: false, title: '', message: '', type: '' });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-// added state for success dialog
-    const [successDialog, setSuccessDialog] = useState({ open: false, title: '', message: '', type: 'success' });
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -55,14 +56,14 @@ const Login = () => {
 
         // after successful login, show success dialog before navigating
         if (role === "admin") {
-          setSuccessDialog({ open: true, title: t('login_success'), message: t('welcome_back_admin'), type: 'success' });
+          toast.success(t('welcome_back_admin') || 'Welcome back, Admin!');
           setTimeout(() => {
             navigate("/admin/dashboard");
           }, 1500);
         } else if (!verified) {
           navigate("/verify-otp");
         } else {
-          setSuccessDialog({ open: true, title: t('login_success'), message: t('welcome_back_user'), type: 'success' });
+          toast.success(t('welcome_back_user') || 'Login successful!');
           setTimeout(() => {
             navigate("/dashboard");
           }, 1500);
@@ -130,21 +131,21 @@ const Login = () => {
     }
     
     console.log(`Social provider not fully integrated: ${provider}`);
-    alert(`${provider} login is coming soon!`);
+    toast.info(`${provider} login is coming soon!`);
   };
   return (
-    <>
-        <ConfirmDialog
-          isOpen={successDialog.open}
-          onClose={() => setSuccessDialog({ ...successDialog, open: false })}
-          title={successDialog.title}
-          message={successDialog.message}
-          type={successDialog.type}
-          confirmText={t('ok')}
-          cancelText={t('close')}
-        />
-    <div className="min-h-screen bg-cyan-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
+    <div className="min-h-screen bg-cyan-100 flex flex-col">
+      <div className="p-6 flex items-center justify-between w-full">
+        <div className="flex items-center gap-4">
+          <BackButton variant="simple" />
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
+
+        <div className="flex justify-center mb-6">
+          <Logo isStatic={true} />
+        </div>
         <h1 className="text-3xl font-bold text-teal-900 mb-6 text-center">{t('login')}</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Email */}
@@ -271,18 +272,12 @@ const Login = () => {
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-          <Link
-            to="/admin/login"
-            className="text-xs font-bold text-slate-400 hover:text-orange-500 uppercase tracking-widest transition-colors"
-          >
-            {t('admin_login')}
-          </Link>
         </div>
       </div>
     </div>
-    </>
+
   );
+
 };
 
 export default Login;

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
+import BackButton from '../components/BackButton';
+
+
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -14,27 +17,20 @@ const ForgotPassword = () => {
     setIsSubmitted(true);
     setTimeout(() => navigate('/verify-otp'), 1500);
   };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="p-8">
-          {/* Back Button */}
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 mb-6"
-          >
-            <ArrowLeft size={16} />
-            Back
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-50 flex flex-col">
 
-          {/* Logo */}
-          <div className="flex items-center gap-2 mb-8">
-            <div className="flex h-10 w-10 items-center justify-center rounded bg-teal-600 text-white font-bold">
-              ≡
-            </div>
-            <span className="text-xl font-bold text-teal-900">Kamau Nepal</span>
-          </div>
+      <div className="p-6 flex items-center justify-between w-full">
+        <div className="flex items-center gap-4">
+          <BackButton variant="simple" />
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+
+        <div className="p-8">
+
+
 
           <div className="text-center mb-8">
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-100 mb-4">
@@ -97,7 +93,11 @@ const ForgotPassword = () => {
         </div>
       </div>
     </div>
+    </div>
   );
 };
+
+
+
 
 export default ForgotPassword;

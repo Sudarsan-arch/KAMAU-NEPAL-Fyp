@@ -14,13 +14,16 @@ import {
   Trash2,
   Menu,
   X,
-  Bell
+  Bell,
+  ChevronLeft
 } from 'lucide-react';
+
 import Logo from '../Logo';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { getUserBookings, deleteBooking } from '../bookingService';
 import { submitReview } from '../services/reviewService';
 import { Send } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const ServicesHistory = () => {
   const navigate = useNavigate();
@@ -165,12 +168,12 @@ const ServicesHistory = () => {
           const response = await deleteBooking(bookingId);
           if (response.success) {
             setBookings(bookings.filter(b => b._id !== bookingId));
-            alert('Booking deleted successfully');
+            toast.success('Booking deleted successfully');
           } else {
-            alert('Error: ' + (response.message || 'Failed to delete booking'));
+            toast.error('Error: ' + (response.message || 'Failed to delete booking'));
           }
         } catch (err) {
-          alert('Error: ' + err.message);
+          toast.error('Error: ' + err.message);
         }
       },
       type: 'danger'
@@ -189,11 +192,11 @@ const ServicesHistory = () => {
   const handleSubmitReview = async (e) => {
     e.preventDefault();
     if (reviewRating === 0) {
-      alert('Please select a star rating');
+      toast.error('Please select a star rating');
       return;
     }
     if (!reviewComment.trim()) {
-      alert('Please write a comment');
+      toast.error('Please write a comment');
       return;
     }
 
@@ -202,7 +205,7 @@ const ServicesHistory = () => {
     const professionalId = reviewBooking?.professionalId?._id || reviewBooking?.professionalId;
 
     if (!professionalId) {
-      alert('Cannot identify the professional for this booking.');
+      toast.error('Cannot identify the professional for this booking.');
       return;
     }
 
@@ -219,7 +222,7 @@ const ServicesHistory = () => {
       }, 2500);
     } catch (err) {
       const msg = err?.response?.data?.message || err.message || 'Failed to submit review';
-      alert(msg);
+      toast.error(msg);
     } finally {
       setReviewSubmitting(false);
     }
@@ -237,16 +240,23 @@ const ServicesHistory = () => {
               {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-gray-900">Services History</h1>
+              <button 
+                  onClick={() => navigate(-1)}
+                  className="p-2 bg-gray-50 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all"
+                  title="Go Back"
+              >
+                  <ChevronLeft size={20} />
+              </button>
+              <button onClick={() => navigate('/')} className="hover:opacity-80 transition cursor-pointer">
+                <Logo />
+              </button>
+              <h1 className="text-xl font-bold text-gray-900 ml-2">Services History</h1>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <button className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition">
               <Bell size={20} />
               <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-            <button onClick={() => navigate('/')} className="hover:opacity-80 transition cursor-pointer">
-              <Logo />
             </button>
           </div>
         </div>

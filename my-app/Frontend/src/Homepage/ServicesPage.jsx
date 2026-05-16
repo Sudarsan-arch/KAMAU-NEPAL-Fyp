@@ -3,20 +3,39 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   Wrench, Zap, Droplets, Paintbrush, 
   Trash2, GraduationCap, Car, 
-  Hammer, ArrowRight, Loader 
+  Hammer, ArrowRight, Loader, UserCircle
 } from 'lucide-react';
 import axios from 'axios';
 import Logo from '../Logo';
 import Button from '../components/Button';
+import BackButton from '../components/BackButton';
+import OptimizedImage from '../components/OptimizedImage';
+
 
 const ServicesPage = () => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const userName = localStorage.getItem('userName') || 'User';
+  const userProfileImage = localStorage.getItem('userProfileImage');
 
   useEffect(() => {
-    fetchCategories();
+    const token = localStorage.getItem('token');
+    setIsLoggedIn(!!token);
   }, []);
+
+  const getInitials = (name) => {
+    return (
+      name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2) || 'UN'
+    );
+  };
 
   const fetchCategories = async () => {
     try {
@@ -61,6 +80,10 @@ const ServicesPage = () => {
     }
   };
 
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
   const handleCategoryClick = (catId) => {
     navigate('/explore-jobs', { state: { searchQuery: catId } });
   };
@@ -68,14 +91,52 @@ const ServicesPage = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
-          <Logo />
-          <div className="hidden md:flex gap-8">
-            <Link to="/companies" className="text-slate-600 hover:text-teal-600 font-semibold">Companies</Link>
-            <Link to="/services" className="text-teal-600 font-bold">Services</Link>
-            <Link to="/people" className="text-slate-600 hover:text-teal-600 font-semibold">People</Link>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center">
+          {/* Left: Logo */}
+          <div className="flex-1 flex items-center gap-6">
+            <BackButton variant="simple" />
+            <Logo />
           </div>
-          <Button variant="secondary" size="sm"></Button>
+
+          {/* Center: Navigation Links */}
+          <div className="hidden md:flex flex-1 items-center justify-center gap-8">
+            <Link to="/companies" className="text-slate-600 hover:text-teal-600 font-semibold transition-colors">Companies</Link>
+            <Link to="/services" className="text-teal-600 font-bold">Services</Link>
+            <Link to="/people" className="text-slate-600 hover:text-teal-600 font-semibold transition-colors">People</Link>
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex-1 flex justify-end">
+            {isLoggedIn ? (
+              <button
+                onClick={() => navigate(localStorage.getItem('userRole') === 'admin' ? '/admin/dashboard' : '/dashboard')}
+                className="flex items-center gap-3 bg-white border border-slate-100 px-3 py-1.5 rounded-xl shadow-sm hover:shadow-md transition-all"
+              >
+                <div className="h-8 w-8 rounded-full overflow-hidden">
+                  {userProfileImage ? (
+                    <OptimizedImage 
+                      src={userProfileImage} 
+                      alt={userName} 
+                      className="h-full w-full" 
+                      fallbackIcon={UserCircle}
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-teal-600 flex items-center justify-center text-white font-bold text-xs">
+                      {getInitials(userName)}
+                    </div>
+                  )}
+                </div>
+                <div className="text-left hidden sm:block">
+                  <div className="text-xs font-bold text-slate-900 leading-none">{userName}</div>
+                  <div className="text-[10px] text-slate-400">
+                    {localStorage.getItem('userRole') === 'admin' ? 'Admin Panel' : 'Dashboard'}
+                  </div>
+                </div>
+              </button>
+            ) : (
+              <Button variant="primary" size="sm" onClick={() => navigate('/login')}>Login</Button>
+            )}
+          </div>
         </div>
       </nav>
 

@@ -6,7 +6,7 @@ const Logo = ({ className = "", isStatic = false }) => {
     <img
       src="/kamau.png"
       alt="KAMAU"
-      className="h-16 md:h-20 w-auto object-contain"
+      className="h-[3px] md:h-[38px] w-auto object-contain"
     />
   );
 

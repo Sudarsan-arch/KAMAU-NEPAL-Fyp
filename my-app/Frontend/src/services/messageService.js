@@ -106,4 +106,18 @@ export const uploadAttachment = async (file) => {
     } catch (error) {
         throw error;
     }
-}
+};
+
+/**
+ * Get total unread messages count
+ */
+export const getUnreadCount = async () => {
+    try {
+        const response = await axios.get('/api/messages/unread-count', {
+            headers: getAuthHeaders()
+        });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};

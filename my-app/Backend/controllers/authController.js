@@ -1,6 +1,13 @@
 import AdminModel from '../models/adminModel.js';
 import jwt from 'jsonwebtoken';
 
+// Validate JWT_SECRET on module load
+if (!process.env.JWT_SECRET) {
+  console.warn("⚠️  WARNING: JWT_SECRET not set in environment variables. Using fallback (not secure for production).");
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key-change-in-production";
+
 /**
  * Admin Login
  * @param {Object} req - Request object (body: username/email, password)
@@ -50,7 +57,7 @@ export const adminLogin = async (req, res) => {
         role: admin.role,
         permissions: admin.permissions
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      JWT_SECRET,
       { expiresIn: '24h' }
     );
 
@@ -109,7 +116,7 @@ export const verifyToken = async (req, res) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     // Verify admin still exists and is active
     const admin = await AdminModel.findById(decoded.id);

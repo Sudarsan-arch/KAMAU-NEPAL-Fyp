@@ -2,13 +2,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Star, MapPin, ShieldCheck, Calendar, MessageSquare, ArrowLeft, Share2, Award,
-  Clock, Briefcase, GraduationCap, UserCircle, X, Send, Check, ThumbsUp, Lock, Heart, AlertCircle, Camera, Download
+  Star, MapPin, ShieldCheck, MessageSquare, Share2, Award,
+  Clock, Briefcase, GraduationCap, UserCircle, X, Check, ThumbsUp, Lock, Heart, AlertCircle, Camera, Download, ChevronLeft
 } from 'lucide-react';
+
 import axios from 'axios';
 import { submitReview, getProfessionalReviews } from './services/reviewService';
 import OptimizedImage from './components/OptimizedImage';
 import LocationPicker from './components/LocationPicker';
+import toast from 'react-hot-toast';
 
 // Enhanced Button Component
 const Button = ({
@@ -48,7 +50,6 @@ const ProfessionalProfile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isUpdatingCover, setIsUpdatingCover] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -65,52 +66,6 @@ const ProfessionalProfile = () => {
   const [pinLocation, setPinLocation] = useState({ lat: 27.7172, lng: 85.3240 }); // Default Kathmandu
   const [requestTime, setRequestTime] = useState('');
   const [requestLocation, setRequestLocation] = useState('');
-  const [customerCoords, setCustomerCoords] = useState({ lat: null, lng: null });
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [reportReason, setReportReason] = useState('');
-  const [reportDescription, setReportDescription] = useState('');
-  const [isReporting, setIsReporting] = useState(false);
-  const [reportSuccess, setReportSuccess] = useState(false);
-
-  const handleReportProfessional = async (e) => {
-    e.preventDefault();
-    if (!reportReason || !reportDescription) {
-      alert('Please provide a reason and description for the report.');
-      return;
-    }
-
-    setIsReporting(true);
-    try {
-      const reporterId = localStorage.getItem('userId');
-      if (!reporterId) {
-        alert('Please login to report a professional.');
-        setIsReporting(false);
-        return;
-      }
-
-      await axios.post('/api/reports', {
-        reporter: reporterId,
-        reporterModel: 'User',
-        target: id,
-        targetModel: 'Professional',
-        reason: reportReason,
-        description: reportDescription
-      });
-
-      setReportSuccess(true);
-      setTimeout(() => {
-        setIsReportModalOpen(false);
-        setReportSuccess(false);
-        setReportReason('');
-        setReportDescription('');
-      }, 3000);
-    } catch (error) {
-      console.error('Report submission error:', error);
-      alert('Failed to submit report. Please try again.');
-    } finally {
-      setIsReporting(false);
-    }
-  };
 
   // Review States
   const [reviews, setReviews] = useState([]);
@@ -137,7 +92,6 @@ const ProfessionalProfile = () => {
         const response = await axios.get(`/api/professionals/${id}`);
         if (response.data.success) {
           setProfile(response.data.data);
-          setImageLoaded(false);
         } else {
           setError('Professional not found');
         }
@@ -306,20 +260,6 @@ const ProfessionalProfile = () => {
       setRequestLocation(localStorage.getItem('userLocation') || "");
     }
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCustomerCoords({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.warn("Geolocation access denied or failed:", error.message);
-        },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-      );
-    }
     setIsRequestModalOpen(true);
   };
 
@@ -329,7 +269,7 @@ const ProfessionalProfile = () => {
 
     // Validate file
     if (file.size > 10 * 1024 * 1024) {
-      alert("Cover image should be less than 10MB");
+      toast.error("Cover image should be less than 10MB");
       return;
     }
 
@@ -362,7 +302,7 @@ const ProfessionalProfile = () => {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("Profile image should be less than 5MB");
+      toast.error("Profile image should be less than 5MB");
       return;
     }
 
@@ -426,7 +366,7 @@ const ProfessionalProfile = () => {
     selectedDate.setHours(0, 0, 0, 0);
 
     if (selectedDate < today) {
-      alert('You cannot book on a past date');
+      toast.error('You cannot book on a past date');
       return;
     }
 
@@ -613,13 +553,16 @@ const ProfessionalProfile = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-slate-50" />
         {/* Top Action Bar */}
         <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-center z-20">
-          <button 
-            onClick={() => navigate('/')}
-            className="p-2 md:p-3 bg-white/90 backdrop-blur-sm rounded-xl hover:bg-white transition-all duration-300 shadow-lg"
-          >
-            <ArrowLeft className="text-slate-900" size={20} />
-          </button>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => navigate(-1)}
+              className="p-2 md:p-3 bg-white/90 backdrop-blur-sm rounded-xl hover:bg-white transition-all duration-300 shadow-lg"
+            >
+              <ChevronLeft className="text-slate-900" size={20} />
+            </button>
+          </div>
           <div className="flex gap-3">
+
             {isSelf && (
               <>
                 <button 
@@ -650,13 +593,6 @@ const ProfessionalProfile = () => {
                 size={20} 
                 className={isFavorite ? "fill-red-500 text-red-500" : "text-slate-600"}
               />
-            </button>
-            <button 
-              onClick={() => setIsReportModalOpen(true)}
-              className="p-2 md:p-3 bg-rose-50 backdrop-blur-sm rounded-xl hover:bg-rose-100 transition-all duration-300 shadow-lg group"
-              title="Report Professional"
-            >
-              <AlertCircle className="text-rose-600 group-hover:scale-110 transition-all" size={20} />
             </button>
             <button 
               onClick={handleShare}
@@ -743,7 +679,7 @@ const ProfessionalProfile = () => {
                 { label: 'Hourly Rate', value: `रू ${profile?.hourlyWage || 'TBD'}`, icon: '💰' },
                 { label: 'Experience', value: '5+ Years', icon: '⭐' },
                 { label: 'Response Time', value: '< 1 hour', icon: '⚡' },
-                { label: 'Completed', value: `${profile?.completedJobs || 0} Jobs`, icon: '✓' }
+                { label: 'Completed', value: `${profile?.completedJobs || 0} Services`, icon: '✓' }
               ].map((stat, idx) => (
                 <div key={idx} className="bg-white rounded-xl p-4 border border-slate-100 hover:border-teal-200 hover:shadow-md transition-all duration-300">
                   <div className="text-2xl mb-2">{stat.icon}</div>
@@ -1215,105 +1151,6 @@ const ProfessionalProfile = () => {
               >
                 <Download size={18} /> Download Original
               </a>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Report Professional Modal */}
-      <AnimatePresence>
-        {isReportModalOpen && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsReportModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-[32px] shadow-2xl overflow-hidden z-10"
-            >
-              {reportSuccess ? (
-                <div className="p-12 text-center">
-                  <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-600">
-                    <Check size={40} />
-                  </div>
-                  <h3 className="text-2xl font-black text-slate-900 mb-2">Report Submitted</h3>
-                  <p className="text-slate-500 font-medium leading-relaxed">
-                    Thank you for keeping our community safe. Our administrators will review your report shortly.
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={handleReportProfessional} className="p-8">
-                  <div className="flex items-center justify-between mb-8">
-                    <div>
-                      <h3 className="text-xl font-black text-slate-900 tracking-tight">Report Professional</h3>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Help us maintain quality</p>
-                    </div>
-                    <button 
-                      type="button"
-                      onClick={() => setIsReportModalOpen(false)}
-                      className="p-2 bg-slate-100 text-slate-400 hover:text-slate-900 rounded-xl transition-all"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Reason for Report</label>
-                      <select 
-                        required
-                        value={reportReason}
-                        onChange={(e) => setReportReason(e.target.value)}
-                        className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-900 font-bold focus:ring-2 focus:ring-rose-500 transition-all outline-none"
-                      >
-                        <option value="">Select a reason</option>
-                        <option value="Inappropriate Behavior">Inappropriate Behavior</option>
-                        <option value="Unprofessional Service">Unprofessional Service</option>
-                        <option value="Fraud or Scam">Fraud or Scam</option>
-                        <option value="Fake Profile">Fake Profile</option>
-                        <option value="Late for Work">Late for Work</option>
-                        <option value="Poor Quality">Poor Quality</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Detailed Description</label>
-                      <textarea 
-                        required
-                        rows="4"
-                        value={reportDescription}
-                        onChange={(e) => setReportDescription(e.target.value)}
-                        placeholder="Please provide more details about the issue..."
-                        className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-900 font-medium focus:ring-2 focus:ring-rose-500 transition-all outline-none resize-none"
-                      />
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                      <button 
-                        type="submit"
-                        disabled={isReporting}
-                        className="flex-1 py-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isReporting ? 'Submitting...' : 'Submit Report'}
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => setIsReportModalOpen(false)}
-                        className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              )}
             </motion.div>
           </div>
         )}

@@ -1,6 +1,86 @@
 import ProfessionalModel from '../models/professionalModel.js';
 import UserModel from '../models/userModel.js';
 import NotificationModel from '../models/notificationModel.js';
+import BookingModel from '../models/bookingModel.js';
+
+/**
+ * Get revenue analytics for the platform
+ * @param {Object} req - Request object
+ * @param {Object} res - Response object
+ */
+export const getRevenueAnalytics = async (req, res) => {
+  try {
+    const paidBookings = await BookingModel.find({ paymentStatus: 'Paid' });
+    
+    // Calculate total revenue
+    const totalRevenue = paidBookings.reduce((sum, booking) => {
+      // Extract numeric value from "रू 9,700" string
+      const costStr = booking.totalCost || "0";
+      const numericValue = parseInt(costStr.replace(/[^\d]/g, '')) || 0;
+      return sum + numericValue;
+    }, 0);
+
+    // Revenue by category
+    const categoryRevenue = await BookingModel.aggregate([
+      { $match: { paymentStatus: 'Paid' } },
+      {
+        $group: {
+          _id: '$serviceTitle',
+          total: { $sum: { $convert: { 
+            input: { $replaceAll: { input: "$totalCost", find: "रू ", replacement: "" } },
+            to: "int",
+            onError: 0,
+            onNull: 0
+          } } }
+        }
+      },
+      { $sort: { total: -1 } }
+    ]);
+
+    // Revenue over time (last 7 days)
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+      
+      const dayBookings = await BookingModel.find({
+        paymentStatus: 'Paid',
+        updatedAt: { $gte: startOfDay, $lte: endOfDay }
+      });
+
+      const dayRevenue = dayBookings.reduce((sum, b) => {
+        const costStr = b.totalCost || "0";
+        return sum + (parseInt(costStr.replace(/[^\d]/g, '')) || 0);
+      }, 0);
+
+      last7Days.push({
+        name: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        value: dayRevenue
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalRevenue,
+        categoryRevenue: categoryRevenue.map(item => ({
+          name: item._id,
+          value: item.total
+        })),
+        timeline: last7Days
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching revenue analytics:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch revenue analytics',
+      error: error.message
+    });
+  }
+};
 
 /**
  * Get admin dashboard statistics
@@ -417,6 +497,35 @@ export const getAnalyticsData = async (req, res) => {
       { $limit: 5 }
     ]);
 
+    // Live Status Distribution
+    const liveStatusDistribution = await ProfessionalModel.aggregate([
+      {
+        $group: {
+          _id: '$liveStatus',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Ensure all statuses are represented
+    const statusMap = {
+      'Free': 0,
+      'Ongoing': 0,
+      'Offline': 0
+    };
+
+    liveStatusDistribution.forEach(item => {
+      const status = item._id || 'Free';
+      if (statusMap.hasOwnProperty(status)) {
+        statusMap[status] = item.count;
+      }
+    });
+
+    const finalDistribution = Object.keys(statusMap).map(status => ({
+      status,
+      count: statusMap[status]
+    }));
+
     return res.status(200).json({
       success: true,
       data: {
@@ -432,7 +541,8 @@ export const getAnalyticsData = async (req, res) => {
         topAreas: topAreas.map(area => ({
           area: area._id,
           count: area.count
-        }))
+        })),
+        liveStatusDistribution: finalDistribution
       }
     });
   } catch (error) {
@@ -750,7 +860,58 @@ export const deleteProfessional = async (req, res) => {
     console.error('Error deleting professional:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to delete professional profile',
+      message: 'Failed to delete professional',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Block a professional for a specific duration
+ * @param {Object} req - Request object (params: id, body: days)
+ * @param {Object} res - Response object
+ */
+export const blockProfessional = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { days = 3 } = req.body;
+
+    const professional = await ProfessionalModel.findById(id);
+    if (!professional) {
+      return res.status(404).json({
+        success: false,
+        message: 'Professional not found'
+      });
+    }
+
+    const blockedUntil = new Date();
+    blockedUntil.setDate(blockedUntil.getDate() + days);
+
+    professional.isBlocked = true;
+    professional.blockedUntil = blockedUntil;
+    professional.liveStatus = 'Offline'; // Force offline when blocked
+    await professional.save();
+
+    // Notify the professional
+    if (professional.userId) {
+      await NotificationModel.create({
+        userId: professional.userId,
+        type: 'warning',
+        title: 'Account Suspended',
+        description: `Your professional account has been suspended for ${days} days due to reported behavior. You will be able to resume services after ${blockedUntil.toLocaleDateString()}.`,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Professional blocked until ${blockedUntil.toLocaleDateString()}`,
+      data: professional
+    });
+  } catch (error) {
+    console.error('Error blocking professional:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to block professional',
       error: error.message
     });
   }

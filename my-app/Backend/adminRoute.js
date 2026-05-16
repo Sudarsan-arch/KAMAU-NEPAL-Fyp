@@ -16,6 +16,8 @@ import {
   getAllUsers,
   deleteUser,
   deleteProfessional,
+  getRevenueAnalytics,
+  blockProfessional,
 } from './controllers/adminController.js';
 import { verifyAdminToken, checkAdminRole } from './adminAuthMiddleware.js';
 
@@ -71,6 +73,9 @@ router.get('/analytics/categories', getCategoryDistribution);
 // GET /api/admin/analytics/status
 router.get('/analytics/status', getStatusDistribution);
 
+// GET /api/admin/analytics/revenue
+router.get('/analytics/revenue', getRevenueAnalytics);
+
 // Export
 // GET /api/admin/export?format=json&status=verified
 router.get('/export', exportData);
@@ -87,5 +92,8 @@ router.delete('/users/:id', deleteUser);
 // Delete Professional
 // DELETE /api/admin/professionals/:id
 router.delete('/professionals/:id', deleteProfessional);
+
+// PATCH /api/admin/professionals/:id/block
+router.patch('/professionals/:id/block', blockProfessional);
 
 export default router;

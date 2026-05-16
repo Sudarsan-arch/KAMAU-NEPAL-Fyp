@@ -17,8 +17,8 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getBookingById, updatePaymentStatus } from '../bookingService';
 import Logo from '../Logo';
-import axios from 'axios';
 import api from '../services/apiInstance';
+import toast from 'react-hot-toast';
 
 
 const KHALTI_INIT_URL = `/api/payments/khalti/initiate`;
@@ -134,7 +134,7 @@ const PaymentPage = () => {
      * Cash/Manual Confirmation
      */
     const handleConfirmPayment = async () => {
-        if (!paymentMethod) return alert('Select your preferred authorization protocol.');
+        if (!paymentMethod) return toast.error('Select your preferred authorization protocol.');
 
         if (paymentMethod === 'Khalti') {
             await handleKhaltiPayment();
@@ -154,7 +154,7 @@ const PaymentPage = () => {
             }
         } else {
              // For eSewa - we can implement later if needed
-             alert(`${paymentMethod} gateway is currently under maintenance in sandbox.`);
+             toast.info(`${paymentMethod} gateway is currently under maintenance in sandbox.`);
         }
     };
 

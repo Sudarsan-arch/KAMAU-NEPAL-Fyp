@@ -6,10 +6,13 @@ import axios from 'axios';
 import {
   X, Menu, Search, Bell, Zap, Compass, Target, Orbit, Eye,
   Power, SwitchCamera, Cpu, Activity, ChevronRight,
-  MessageSquare, DollarSign, User, Mail, Phone, MapPin, UserCircle, ShieldCheck, HelpCircle
+  MessageSquare, DollarSign, User, Mail, Phone, MapPin, UserCircle, ShieldCheck, HelpCircle, ChevronLeft, ShieldAlert
 } from 'lucide-react';
+
 import OptimizedImage from '../components/OptimizedImage';
 import { useTranslation } from '../utils/LanguageContext';
+import { getUnreadCount } from '../services/messageService';
+import toast from 'react-hot-toast';
 
 // Components
 import Logo from '../Logo';
@@ -31,6 +34,7 @@ const ProfessionalDashboard = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [isUpdatingImage, setIsUpdatingImage] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [stats, setStats] = useState({
     pendingRequests: 0,
@@ -81,6 +85,29 @@ const ProfessionalDashboard = () => {
     fetchDashboardData();
   }, [fetchDashboardData, refetchTrigger]);
 
+  // Fetch unread messages count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await getUnreadCount();
+        if (response.success) {
+          setUnreadCount(response.count);
+        }
+      } catch (err) {
+        console.error("Error fetching unread count:", err);
+      }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000); // Check every 30 seconds
+    
+    window.addEventListener('refreshUnreadCount', fetchUnreadCount);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('refreshUnreadCount', fetchUnreadCount);
+    };
+  }, []);
+
   const handleBookingAction = async (bookingId, newStatus, notes = "") => {
     try {
       const token = localStorage.getItem('token');
@@ -97,7 +124,7 @@ const ProfessionalDashboard = () => {
       }
     } catch (err) {
       console.error('Error updating booking status:', err);
-      alert(err.response?.data?.message || 'Failed to update booking status');
+      toast.error(err.response?.data?.message || 'Failed to update booking status');
     }
   };
 
@@ -119,11 +146,11 @@ const ProfessionalDashboard = () => {
 
       if (response.data.success) {
         setProfessionalData(response.data.data);
-        alert(`${type === 'profileImage' ? 'Profile' : 'Cover'} photo updated successfully!`);
+        toast.success(`${type === 'profileImage' ? 'Profile' : 'Cover'} photo updated successfully!`);
       }
     } catch (err) {
       console.error(`Error updating ${type}:`, err);
-      alert(`Failed to update ${type}`);
+      toast.error(`Failed to update ${type}`);
     } finally {
       setIsUpdatingImage(false);
     }
@@ -218,7 +245,7 @@ const ProfessionalDashboard = () => {
     { id: 'overview', label: t('overview'), icon: Compass, badge: null },
     { id: 'requests', label: t('service_requests'), icon: Target, badge: stats.pendingRequests || null },
     { id: 'map', label: t('service_map'), icon: Orbit, badge: allRequests.filter(r => ['Pending', 'Confirmed', 'In Progress'].includes(r.status)).length || null },
-    { id: 'messages', label: t('messages'), icon: MessageSquare, badge: 3 },
+    { id: 'messages', label: t('messages'), icon: MessageSquare, badge: unreadCount || null },
     { id: 'earnings', label: t('earnings'), icon: Orbit, badge: null },
     { id: 'profile', label: t('public_profile'), icon: Eye, badge: null },
   ];
@@ -439,6 +466,13 @@ const ProfessionalDashboard = () => {
       <header className="sticky top-0 z-40 bg-white/60 backdrop-blur-2xl border-b border-slate-200 px-6 h-16 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-all"><Menu size={22} /></button>
+          <button 
+              onClick={() => navigate(-1)}
+              className="p-2 bg-slate-50 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all"
+              title="Go Back"
+          >
+              <ChevronLeft size={20} />
+          </button>
           <Logo className="opacity-90 hover:opacity-100 transition-opacity" />
         </div>
 
@@ -526,6 +560,25 @@ const ProfessionalDashboard = () => {
                 Kamau   &bull; Session Active
               </p>
             </header>
+
+            {professionalData?.isBlocked && (
+              <div className="bg-rose-50 border border-rose-200 p-8 rounded-[40px] animate-in slide-in-from-top-4 duration-500 shadow-sm">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 rounded-[24px] bg-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-200">
+                    <ShieldAlert size={32} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 leading-tight">Account Suspended</h3>
+                    <p className="text-sm font-bold text-rose-600 mt-1">
+                      Your professional services are temporarily blocked until {new Date(professionalData.blockedUntil).toLocaleDateString()}.
+                    </p>
+                    <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mt-2">
+                      REASON: Multiple behavior reports identified by administration.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {activeTab === 'overview' && renderOverview()}
             {activeTab === 'requests' && renderRequests()}

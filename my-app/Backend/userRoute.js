@@ -17,6 +17,13 @@ import sharp from "sharp";
 
 const router = express.Router();
 
+// Validate JWT_SECRET on module load
+if (!process.env.JWT_SECRET) {
+  console.warn("⚠️  WARNING: JWT_SECRET not set in environment variables. Using fallback (not secure for production).");
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key-change-in-production";
+
 // Password validation helper
 const validatePassword = (password) => {
   const minLength = 8;
@@ -146,7 +153,7 @@ router.post("/verify-otp", async (req, res) => {
 
     const token = jwt.sign(
       { id: user._id },
-      process.env.JWT_SECRET || "your-secret-key",
+      JWT_SECRET,
       { expiresIn: "7d" }
     );
 
@@ -220,7 +227,7 @@ router.post("/login", async (req, res) => {
             role: admin.role,
             permissions: admin.permissions
           },
-          process.env.JWT_SECRET || "your-secret-key",
+          JWT_SECRET,
           { expiresIn: "1d" }
         );
 
@@ -261,7 +268,7 @@ router.post("/login", async (req, res) => {
     
     const token = jwt.sign(
       { id: user._id, role: professional ? "professional" : "user" },
-      process.env.JWT_SECRET || "your-secret-key",
+      JWT_SECRET,
       { expiresIn: "7d" }
     );
 
@@ -330,7 +337,7 @@ router.post("/google-login", async (req, res) => {
     // Generate platform JWT
     const token = jwt.sign(
       { id: user._id, role: professional ? "professional" : "user" },
-      process.env.JWT_SECRET || "your-secret-key",
+      JWT_SECRET,
       { expiresIn: "7d" }
     );
 
@@ -428,7 +435,7 @@ router.put("/:userId/profile", upload.single("profileImage"), async (req, res) =
         if (req.file) {
           // Process uploaded file
           await sharp(req.file.path)
-            .resize(400, 400, { fit: 'cover' })
+            .resize(500, 500, { fit: 'cover' })
             .webp({ quality: 80 })
             .toFile(optimizedPath);
           
@@ -439,7 +446,7 @@ router.put("/:userId/profile", upload.single("profileImage"), async (req, res) =
           const buffer = Buffer.from(base64Data, 'base64');
           
           await sharp(buffer)
-            .resize(400, 400, { fit: 'cover' })
+            .resize(500, 500, { fit: 'cover' })
             .webp({ quality: 80 })
             .toFile(optimizedPath);
         }

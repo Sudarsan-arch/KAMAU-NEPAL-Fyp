@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from 'react-router-dom'
 import axios from "axios"
-import { Camera, Mail, Phone, MapPin, CheckCircle2, ArrowLeft, AlertCircle, Menu, X, Bell, Lock, ShieldCheck, Key, UserCircle, Moon, Sun, Monitor, Languages, Globe } from "lucide-react"
+import { Camera, Mail, Phone, MapPin, CheckCircle2, ArrowLeft, AlertCircle, Menu, X, Bell, Lock, ShieldCheck, Key, UserCircle, Moon, Sun, Globe, ChevronLeft } from "lucide-react"
 import Sidebar from './components/Sidebar'
 import Logo from './Logo'
 import OptimizedImage from './components/OptimizedImage'
@@ -499,7 +499,7 @@ export default function UserProfile() {
     const upper = /[A-Z]/.test(pass);
     const lower = /[a-z]/.test(pass);
     const number = /[0-9]/.test(pass);
-    const special = /[!@#$%^&*()_+{}\[\]:;<>,.?~\\/\-]/.test(pass);
+    const special = /[!@#$%^&*()_+{}[\]:;<>,.?~\\/-]/.test(pass);
 
     setPasswordStrength({ length, upper, lower, number, special });
 
@@ -620,22 +620,29 @@ export default function UserProfile() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition"
-            >
-              {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <h1 className="text-xl font-bold text-gray-900">User Profile</h1>
-          </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="lg:hidden p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition"
+              >
+                {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+              <button 
+                onClick={() => navigate(-1)}
+                className="p-2 bg-slate-50 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all"
+                title="Go Back"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button onClick={() => navigate('/')} className="hover:opacity-80 transition cursor-pointer">
+                <Logo />
+              </button>
+              <h1 className="text-xl font-bold text-gray-900 ml-2">User Profile</h1>
+            </div>
           <div className="flex items-center gap-4">
             <button className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition">
               <Bell size={20} />
               <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-            <button onClick={() => navigate('/')} className="hover:opacity-80 transition cursor-pointer">
-              <Logo />
             </button>
           </div>
         </div>

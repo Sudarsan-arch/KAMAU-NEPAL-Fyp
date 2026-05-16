@@ -38,8 +38,6 @@ const HomePage = () => {
     );
   };
 
-  const [professionalStatus, setProfessionalStatus] = useState(null);
-
   useEffect(() => {
     const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
@@ -51,7 +49,6 @@ const HomePage = () => {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.data.success) {
-            setProfessionalStatus(response.data.data.verificationStatus);
             // Also sycn the role in localStorage if verified
             if (response.data.data.verificationStatus === 'verified') {
                localStorage.setItem('userRole', 'professional');
@@ -69,7 +66,6 @@ const HomePage = () => {
   const handleLogout = () => {
     localStorage.clear();
     setIsLoggedIn(false);
-    setProfessionalStatus(null);
     navigate('/');
     // Optional: reload to ensure full state clear
     window.location.reload();
@@ -83,7 +79,7 @@ const HomePage = () => {
         const response = await axios.get('/api/professionals/', {
           params: {
             isVerified: true,
-            limit: 4
+            limit: 12
           }
         });
 
@@ -164,7 +160,8 @@ const HomePage = () => {
             'gas fitter': { type: 'emoji', value: '⛽' },
             'car repair': { type: 'image', value: '/assets/categories/mechanic.png' },
             'mechanic': { type: 'image', value: '/assets/categories/mechanic.png' },
-            'electrician': { type: 'image', value: '/assets/categories/electrician.png' },
+            'electrician': { type: 'image', value: '/assets/categories/electrical.png' },
+            'electrical': { type: 'image', value: '/assets/categories/electrical.png' },
             'painter': { type: 'emoji', value: '🎨' },
             'gardener': { type: 'image', value: '/assets/categories/gardening.png' },
             'gardening': { type: 'image', value: '/assets/categories/gardening.png' },
@@ -212,7 +209,7 @@ const HomePage = () => {
             </div>
 
             {/* Center: Navigation Links */}
-            <div className="hidden md:flex items-center gap-10">
+            <div className="hidden md:flex flex-1 items-center justify-center gap-10">
               {['Companies', 'Services', 'People'].map((item) => (
                 <Link key={item} to={`/${item.toLowerCase()}`} className="text-sm font-semibold text-slate-600 hover:text-teal-600 transition-colors">
                   {item}
@@ -231,7 +228,12 @@ const HomePage = () => {
                     >
                       <div className="h-8 w-8 rounded-full overflow-hidden">
                         {userProfileImage ? (
-                          <img src={userProfileImage} alt={userName} className="h-full w-full object-cover" />
+                          <OptimizedImage 
+                            src={userProfileImage} 
+                            alt={userName} 
+                            className="h-full w-full" 
+                            fallbackIcon={UserCircle}
+                          />
                         ) : (
                           <div className="h-full w-full bg-teal-600 flex items-center justify-center text-white font-bold">
                             {getInitials(userName)}
@@ -393,7 +395,12 @@ const HomePage = () => {
                   >
                     <div className="w-20 h-20 mb-4 group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
                       {category.iconType === 'image' ? (
-                        <img src={category.icon} alt={category.name} className="w-full h-full object-contain" />
+                        <OptimizedImage 
+                          src={category.icon} 
+                          alt={category.name} 
+                          className="w-full h-full" 
+                          objectFit="object-contain"
+                        />
                       ) : (
                         <span className="text-5xl">{category.icon}</span>
                       )}
@@ -420,19 +427,19 @@ const HomePage = () => {
               <Button 
                 variant="outline" 
                 className="hidden md:flex gap-2"
-                onClick={() => navigate('/explore-jobs')}
+                onClick={() => navigate('/people')}
               >
                 {t('view_all_experts')} <MoreHorizontal size={18} />
               </Button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-thin" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
               {loadingProfessionals ? (
-                <div className="col-span-full text-center py-8">
+                <div className="flex-1 text-center py-8 min-w-full">
                   <p className="text-slate-500">Loading professionals...</p>
                 </div>
               ) : professionals.length > 0 ? (
                 professionals.map((p) => (
-                  <div key={p._id} className="group bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 hover:border-teal-500 transition-all duration-300 flex flex-col relative overflow-hidden h-full">
+                  <div key={p._id} className="group bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 hover:border-teal-500 transition-all duration-300 flex flex-col relative overflow-hidden snap-start shrink-0" style={{ width: '300px', minHeight: '380px' }}>
                     <div className="absolute top-0 left-0 w-full h-2 bg-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="flex justify-between items-start mb-6">
                       <div className="w-16 h-16 rounded-2xl bg-teal-50 shadow-inner overflow-hidden relative">
@@ -457,7 +464,7 @@ const HomePage = () => {
                         <span className="text-sm font-black">{p.rating}</span>
                         <span className="text-sm text-slate-400">({p.reviews})</span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm font-medium text-slate-500"><MapPin size={16} className="text-teal-500" /> {p.location}</div>
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-500 truncate"><MapPin size={16} className="text-teal-500 shrink-0" /> <span className="truncate">{p.location}</span></div>
                       <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-black text-emerald-600 w-fit">
                         <CheckCircle2 size={14} className="text-emerald-500" /> {p.completedJobs} {p.completedJobs === 1 ? t('service') : t('services_done')}
                       </div>
@@ -473,7 +480,7 @@ const HomePage = () => {
                   </div>
                 ))
               ) : (
-                <div className="col-span-full text-center py-8">
+                <div className="flex-1 text-center py-8 min-w-full">
                   <p className="text-slate-500">No verified professionals yet. Be the first to register!</p>
                 </div>
               )}
@@ -508,8 +515,12 @@ const HomePage = () => {
               <h4 className="text-white font-semibold mb-6">Support</h4>
               <ul className="space-y-4 text-sm font-medium">
                 <li><Link to="/help" className="hover:text-teal-400 transition-colors">Help Center</Link></li>
-                {['Privacy Policy', 'Terms of Service', 'Trust & Safety'].map(l => (
-                  <li key={l}><Link to="#" className="hover:text-teal-400 transition-colors">{l}</Link></li>
+                {[
+                  { label: 'Privacy Policy', path: '/privacy-policy' },
+                  { label: 'Terms of Service', path: '/terms-of-service' },
+                  { label: 'Trust & Safety', path: '/trust-and-safety' }
+                ].map(l => (
+                  <li key={l.label}><Link to={l.path} className="hover:text-teal-400 transition-colors">{l.label}</Link></li>
                 ))}
               </ul>
             </div>

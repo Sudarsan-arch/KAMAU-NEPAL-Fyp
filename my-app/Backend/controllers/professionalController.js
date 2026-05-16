@@ -105,7 +105,7 @@ export const registerProfessional = async (req, res) => {
       
       try {
         await sharp(originalPath)
-          .resize(400, 400, { fit: 'cover' })
+          .resize(500, 500, { fit: 'cover' })
           .webp({ quality: 80 })
           .toFile(optimizedPath);
         
@@ -125,7 +125,7 @@ export const registerProfessional = async (req, res) => {
       
       try {
         await sharp(originalPath)
-          .resize(1200, 400, { fit: 'cover' })
+          .resize(1200, 600, { fit: 'cover' })
           .webp({ quality: 80 })
           .toFile(optimizedPath);
         
@@ -385,7 +385,7 @@ export const updateProfessionalProfile = async (req, res) => {
       
       try {
         await sharp(originalPath)
-          .resize(400, 400, { fit: 'cover' })
+          .resize(500, 500, { fit: 'cover' })
           .webp({ quality: 80 })
           .toFile(optimizedPath);
         
@@ -404,7 +404,7 @@ export const updateProfessionalProfile = async (req, res) => {
       
       try {
         await sharp(originalPath)
-          .resize(1200, 400, { fit: 'cover' })
+          .resize(1200, 600, { fit: 'cover' })
           .webp({ quality: 80 })
           .toFile(optimizedPath);
         
@@ -576,13 +576,31 @@ export const deleteProfessionalProfile = async (req, res) => {
       });
     }
 
-    // TODO: Delete associated files from storage
-    // if (professional.profileImage) {
-    //   fs.unlinkSync(professional.profileImage);
-    // }
-    // professional.verificationDocuments.forEach(doc => {
-    //   fs.unlinkSync(doc.path);
-    // });
+    // Delete associated files from storage
+    try {
+      if (professional.profileImage && !professional.profileImage.startsWith('data:')) {
+        const imagePath = path.join(path.resolve(), professional.profileImage);
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+          console.log('Deleted profile image:', imagePath);
+        }
+      }
+      
+      if (professional.verificationDocuments && professional.verificationDocuments.length > 0) {
+        professional.verificationDocuments.forEach(doc => {
+          if (doc.path) {
+            const docPath = path.join(path.resolve(), doc.path);
+            if (fs.existsSync(docPath)) {
+              fs.unlinkSync(docPath);
+              console.log('Deleted document:', docPath);
+            }
+          }
+        });
+      }
+    } catch (fileErr) {
+      console.error('Error deleting files:', fileErr);
+      // Don't fail the deletion if file cleanup fails
+    }
 
     return res.status(200).json({
       success: true,

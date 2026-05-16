@@ -4,28 +4,17 @@ import Sidebar from '../components/Sidebar';
 import {
     Menu,
     X,
-    Search,
     Bell,
-    Settings,
-    LogOut,
     MapPin,
     Clock,
     DollarSign,
     Star,
-    Phone,
-    Mail,
     Trash2,
-    Edit2,
     CheckCircle,
     AlertCircle,
     Calendar,
     ChevronDown,
-    MessageSquare,
-    Home,
-    TrendingUp,
-    CreditCard,
-    HelpCircle,
-    Briefcase,
+    Flag,
 } from 'lucide-react';
 import Logo from '../Logo';
 
@@ -36,13 +25,16 @@ export default function MyBookings() {
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [showCancelForm, setShowCancelForm] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
-
-    const userName = localStorage.getItem('userName') || 'Professional User';
-    const userProfileImage = localStorage.getItem('userProfileImage');
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [reviewRating, setReviewRating] = useState(0);
+    const [reviewComment, setReviewComment] = useState('');
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportReason, setReportReason] = useState('');
+    const [reportDescription, setReportDescription] = useState('');
+    const [reportedCustomers, setReportedCustomers] = useState([]);
 
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
 
     useEffect(() => {
         fetchBookings();
@@ -164,6 +156,126 @@ export default function MyBookings() {
 
     const handleLogoClick = () => {
         navigate('/');
+    };
+
+    const handleOpenReviewModal = (booking) => {
+        setSelectedBooking(booking);
+        setShowReviewModal(true);
+        checkIfCustomerReported(booking.userId?._id || booking.userId);
+    };
+
+    const checkIfCustomerReported = async (customerId) => {
+        if (!customerId) return;
+        
+        try {
+            const professionalId = localStorage.getItem('userId');
+            const token = localStorage.getItem('token');
+            
+            const response = await fetch(`http://localhost:5001/api/reports/check/${professionalId}/${customerId}?reporterModel=Professional&targetModel=User`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.hasReported) {
+                    setReportedCustomers(prev => [...new Set([...prev, customerId])]);
+                }
+            }
+        } catch (error) {
+            console.error('Error checking report status:', error);
+        }
+    };
+
+    const handleSubmitReview = async () => {
+        if (reviewRating === 0) {
+            alert('Please select a rating');
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch('http://localhost:5001/api/reviews', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    professionalId: selectedBooking.professionalId._id,
+                    bookingId: selectedBooking._id,
+                    rating: reviewRating,
+                    comment: reviewComment
+                })
+            });
+
+            if (response.ok) {
+                alert('Review submitted successfully!');
+                setShowReviewModal(false);
+                setReviewRating(0);
+                setReviewComment('');
+                fetchBookings();
+            } else {
+                const error = await response.json();
+                alert(error.message || 'Failed to submit review');
+            }
+        } catch (error) {
+            console.error('Error submitting review:', error);
+            alert('Failed to submit review');
+        }
+    };
+
+    const handleOpenReportModal = () => {
+        setShowReportModal(true);
+    };
+
+    const handleSubmitReport = async () => {
+        if (!reportReason || !reportDescription.trim()) {
+            alert('Please select a reason and provide a description');
+            return;
+        }
+
+        try {
+            const professionalId = localStorage.getItem('userId');
+            const customerId = selectedBooking.userId?._id || selectedBooking.userId;
+            const token = localStorage.getItem('token');
+
+            const response = await fetch('http://localhost:5001/api/reports', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    reporterId: professionalId,
+                    reporterModel: 'Professional',
+                    targetId: customerId,
+                    targetModel: 'User',
+                    reason: reportReason,
+                    description: reportDescription,
+                    bookingId: selectedBooking._id
+                })
+            });
+
+            if (response.ok) {
+                alert('Report submitted successfully');
+                setReportedCustomers(prev => [...new Set([...prev, customerId])]);
+                setShowReportModal(false);
+                setReportReason('');
+                setReportDescription('');
+            } else {
+                const error = await response.json();
+                alert(error.message || 'Failed to submit report');
+            }
+        } catch (error) {
+            console.error('Error submitting report:', error);
+            alert('Failed to submit report');
+        }
+    };
+
+    const isCustomerReported = (customerId) => {
+        return reportedCustomers.includes(customerId);
     };
 
     return (
@@ -360,7 +472,10 @@ export default function MyBookings() {
                                         </>
                                     )}
                                     {selectedBooking.status === 'Completed' && (
-                                        <button className="flex-1 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg transition">
+                                        <button 
+                                            onClick={() => handleOpenReviewModal(selectedBooking)}
+                                            className="flex-1 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg transition"
+                                        >
                                             Leave Review
                                         </button>
                                     )}
@@ -551,6 +666,141 @@ export default function MyBookings() {
                                 className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition"
                             >
                                 Confirm Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Review Modal */}
+            {showReviewModal && selectedBooking && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-gray-900">Leave a Review</h3>
+                            <button
+                                onClick={handleOpenReportModal}
+                                disabled={isCustomerReported(selectedBooking.userId?._id || selectedBooking.userId)}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
+                                    isCustomerReported(selectedBooking.userId?._id || selectedBooking.userId)
+                                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                        : 'bg-red-50 text-red-600 hover:bg-red-100'
+                                }`}
+                            >
+                                <Flag size={16} />
+                                {isCustomerReported(selectedBooking.userId?._id || selectedBooking.userId) ? 'Reported' : 'Report'}
+                            </button>
+                        </div>
+                        
+                        <div className="mb-4">
+                            <p className="text-gray-600 mb-2">Rate your experience with {selectedBooking.serviceProvider}</p>
+                            <div className="flex gap-2 justify-center mb-4">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                        key={star}
+                                        onClick={() => setReviewRating(star)}
+                                        className="transition-transform hover:scale-110"
+                                    >
+                                        <Star
+                                            size={32}
+                                            className={`${
+                                                star <= reviewRating
+                                                    ? 'fill-yellow-400 text-yellow-400'
+                                                    : 'text-gray-300'
+                                            }`}
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <textarea
+                            value={reviewComment}
+                            onChange={(e) => setReviewComment(e.target.value)}
+                            placeholder="Share your experience (optional)..."
+                            className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-orange-600"
+                            rows={4}
+                        />
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowReviewModal(false);
+                                    setReviewRating(0);
+                                    setReviewComment('');
+                                }}
+                                className="flex-1 py-2 border border-gray-300 text-gray-900 font-semibold rounded-lg hover:bg-gray-50 transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSubmitReview}
+                                className="flex-1 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition"
+                            >
+                                Submit Review
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Report Modal */}
+            {showReportModal && selectedBooking && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">Report Customer</h3>
+                        
+                        <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Reason for Report
+                            </label>
+                            <select
+                                value={reportReason}
+                                onChange={(e) => setReportReason(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-600"
+                            >
+                                <option value="">Select a reason</option>
+                                <option value="Late arrival">Late arrival</option>
+                                <option value="Poor service">Poor service</option>
+                                <option value="Overcharging">Overcharging</option>
+                                <option value="Fraud/scam">Fraud/scam</option>
+                                <option value="Inappropriate Behavior">Inappropriate Behavior</option>
+                                <option value="No Show">No Show</option>
+                                <option value="Payment Issues">Payment Issues</option>
+                                <option value="Unreasonable Demands">Unreasonable Demands</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Description
+                            </label>
+                            <textarea
+                                value={reportDescription}
+                                onChange={(e) => setReportDescription(e.target.value)}
+                                placeholder="Please provide details about the issue..."
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-600"
+                                rows={4}
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowReportModal(false);
+                                    setReportReason('');
+                                    setReportDescription('');
+                                }}
+                                className="flex-1 py-2 border border-gray-300 text-gray-900 font-semibold rounded-lg hover:bg-gray-50 transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSubmitReport}
+                                className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition"
+                            >
+                                Submit Report
                             </button>
                         </div>
                     </div>

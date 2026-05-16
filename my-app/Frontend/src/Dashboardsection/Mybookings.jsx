@@ -16,11 +16,19 @@ import {
     ChevronDown,
     Send,
     CreditCard,
+    Flag,
+    Check,
+    ChevronLeft,
 } from 'lucide-react';
+
 import Logo from '../Logo';
 import NotificationsMenu from '../components/NotificationsMenu';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { submitReview } from '../services/reviewService';
+import OptimizedImage from '../components/OptimizedImage';
+import { UserCircle as User } from 'lucide-react';
+import toast from 'react-hot-toast';
+import axios from 'axios';
 
 export default function MyBookings() {
     const navigate = useNavigate();
@@ -52,6 +60,17 @@ export default function MyBookings() {
     const [reviewSubmitted, setReviewSubmitted] = useState(false);
     const [reviewedProfessionals, setReviewedProfessionals] = useState(() => {
         try { return JSON.parse(localStorage.getItem('reviewedProfessionals') || '[]'); }
+        catch { return []; }
+    });
+
+    // Report Modal State
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [reportReason, setReportReason] = useState('');
+    const [reportDescription, setReportDescription] = useState('');
+    const [isReporting, setIsReporting] = useState(false);
+    const [reportSuccess, setReportSuccess] = useState(false);
+    const [reportedCustomers, setReportedCustomers] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('reportedCustomers') || '[]'); }
         catch { return []; }
     });
 
@@ -160,7 +179,7 @@ export default function MyBookings() {
 
     const handleCancelBooking = async () => {
         if (!cancelReason.trim()) {
-            alert('Please provide a reason for cancellation');
+            toast.error('Please provide a reason for cancellation');
             return;
         }
 
@@ -168,14 +187,14 @@ export default function MyBookings() {
             const { updateBookingStatus } = await import('../bookingService');
             await updateBookingStatus(selectedBooking._id, 'Cancelled', cancelReason);
 
-            alert('Booking cancelled successfully.');
+            toast.success('Booking cancelled successfully.');
             setShowCancelForm(false);
             setCancelReason('');
             setSelectedBooking(null);
             fetchBookings(); // Refresh list
         } catch (err) {
             console.error('Error cancelling booking:', err);
-            alert(err.message || 'Failed to cancel booking');
+            toast.error(err.message || 'Failed to cancel booking');
         }
     };
 
@@ -188,12 +207,12 @@ export default function MyBookings() {
                 try {
                     const { updateBookingStatus } = await import('../bookingService');
                     await updateBookingStatus(bookingId, 'Completed', '');
-                    alert('Booking marked as completed successfully.');
+                    toast.success('Booking marked as completed successfully.');
                     fetchBookings(); // Refresh list
                     setSelectedBooking(null);
                 } catch (err) {
                     console.error('Error completing booking:', err);
-                    alert(err.message || 'Failed to complete booking');
+                    toast.error(err.message || 'Failed to complete booking');
                 }
             },
             type: 'success'
@@ -209,11 +228,11 @@ export default function MyBookings() {
                 try {
                     const { deleteBooking } = await import('../bookingService');
                     await deleteBooking(bookingId);
-                    alert('Booking deleted successfully');
+                    toast.success('Booking deleted successfully');
                     fetchBookings(); // Refresh list
                 } catch (err) {
                     console.error('Error deleting booking:', err);
-                    alert(err.message || 'Failed to delete booking');
+                    toast.error(err.message || 'Failed to delete booking');
                 }
             },
             type: 'danger'
@@ -224,23 +243,93 @@ export default function MyBookings() {
         navigate('/');
     };
 
-    const openReviewModal = (booking) => {
+    const openReviewModal = async (booking) => {
         setReviewBooking(booking);
         setReviewRating(0);
         setReviewHover(0);
         setReviewComment('');
         setReviewSubmitted(false);
         setShowReviewModal(true);
+
+        // Check if this customer has already been reported
+        const reporterId = localStorage.getItem('userId');
+        if (reporterId && booking.userId) {
+            try {
+                const response = await axios.get(
+                    `/api/reports/check/${reporterId}/${booking.userId}?reporterModel=Professional&targetModel=User`
+                );
+                if (response.data.success && response.data.hasReported) {
+                    // Add to local state if not already there
+                    if (!reportedCustomers.includes(booking.userId)) {
+                        const updatedReported = [...reportedCustomers, booking.userId];
+                        setReportedCustomers(updatedReported);
+                        localStorage.setItem('reportedCustomers', JSON.stringify(updatedReported));
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking report status:', error);
+                // Continue anyway - don't block the modal
+            }
+        }
+    };
+
+    const handleReportCustomer = async (e) => {
+        e.preventDefault();
+        if (!reportReason || !reportDescription) {
+            toast.error('Please provide a reason and description for the report.');
+            return;
+        }
+
+        setIsReporting(true);
+        try {
+            const reporterId = localStorage.getItem('userId');
+            if (!reporterId) {
+                toast.error('Please login to report a customer.');
+                setIsReporting(false);
+                return;
+            }
+
+            const response = await axios.post('/api/reports', {
+                reporter: reporterId,
+                reporterModel: 'Professional',
+                target: reviewBooking.userId,
+                targetModel: 'User',
+                reason: reportReason,
+                description: reportDescription
+            });
+
+            if (response.data.success) {
+                // Add to reported customers list
+                const updatedReported = [...reportedCustomers, reviewBooking.userId];
+                setReportedCustomers(updatedReported);
+                localStorage.setItem('reportedCustomers', JSON.stringify(updatedReported));
+
+                setReportSuccess(true);
+                toast.success('Report submitted successfully');
+                setTimeout(() => {
+                    setIsReportModalOpen(false);
+                    setReportSuccess(false);
+                    setReportReason('');
+                    setReportDescription('');
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('Report submission error:', error);
+            const errorMessage = error.response?.data?.message || 'Failed to submit report. Please try again.';
+            toast.error(errorMessage);
+        } finally {
+            setIsReporting(false);
+        }
     };
 
     const handleSubmitReview = async (e) => {
         e.preventDefault();
         if (reviewRating === 0) {
-            alert('Please select a star rating');
+            toast.error('Please select a star rating');
             return;
         }
         if (!reviewComment.trim()) {
-            alert('Please write a comment');
+            toast.error('Please write a comment');
             return;
         }
 
@@ -249,7 +338,7 @@ export default function MyBookings() {
         const professionalId = reviewBooking?.professionalId?._id || reviewBooking?.professionalId;
 
         if (!professionalId) {
-            alert('Cannot identify the professional for this booking.');
+            toast.error('Cannot identify the professional for this booking.');
             return;
         }
 
@@ -267,7 +356,7 @@ export default function MyBookings() {
             }, 2500);
         } catch (err) {
             const msg = err?.response?.data?.message || err.message || 'Failed to submit review';
-            alert(msg);
+            toast.error(msg);
         } finally {
             setReviewSubmitting(false);
         }
@@ -295,6 +384,13 @@ export default function MyBookings() {
                             className="lg:hidden p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition"
                         >
                             {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                        </button>
+                        <button 
+                            onClick={() => navigate(-1)}
+                            className="p-2 bg-gray-50 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all"
+                            title="Go Back"
+                        >
+                            <ChevronLeft size={20} />
                         </button>
                         <Logo />
                         <div className="h-6 w-[1px] bg-gray-200 mx-2"></div>
@@ -332,7 +428,12 @@ export default function MyBookings() {
                         >
                             <div className="h-9 w-9 rounded-full overflow-hidden shadow-sm group-hover:shadow-md transition">
                                 {userProfileImage ? (
-                                    <img src={userProfileImage} alt={userName} className="h-full w-full object-cover" />
+                                    <OptimizedImage 
+                                        src={userProfileImage} 
+                                        alt={userName} 
+                                        className="h-full w-full" 
+                                        fallbackIcon={User}
+                                    />
                                 ) : (
                                     <div className="h-full w-full bg-orange-500 flex items-center justify-center text-white font-bold">
                                         {userName?.charAt(0) || 'U'}
@@ -371,20 +472,11 @@ export default function MyBookings() {
                                     <div className="flex-shrink-0">
                                         <div className="h-24 w-24 rounded-full bg-white border-4 border-orange-100 overflow-hidden flex items-center justify-center text-4xl shadow-md shrink-0">
                                             {selectedBooking.professionalId?.profileImage ? (
-                                                <img
-                                                    src={selectedBooking.professionalId.profileImage.startsWith('http') || selectedBooking.professionalId.profileImage.startsWith('data:')
-                                                        ? selectedBooking.professionalId.profileImage
-                                                        : `/${selectedBooking.professionalId.profileImage.replace(/\\/g, '/')}`
-                                                    }
+                                                <OptimizedImage
+                                                    src={selectedBooking.professionalId.profileImage}
                                                     alt={selectedBooking.serviceProvider}
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => {
-                                                        e.target.style.display = 'none';
-                                                        const fallback = document.createElement('span');
-                                                        fallback.className = 'text-orange-600';
-                                                        fallback.innerText = getInitials(selectedBooking.serviceProvider);
-                                                        e.target.parentElement.appendChild(fallback);
-                                                    }}
+                                                    className="w-full h-full"
+                                                    fallbackIcon={User}
                                                 />
                                             ) : (
                                                 <span className="text-orange-600">{getInitials(selectedBooking.serviceProvider)}</span>
@@ -607,20 +699,11 @@ export default function MyBookings() {
                                                 <div className="flex items-start justify-between">
                                                     <div className="h-16 w-16 rounded-full bg-white border-2 border-white/50 overflow-hidden flex items-center justify-center text-xl font-bold shadow-md shrink-0">
                                                         {booking.professionalId?.profileImage ? (
-                                                            <img
-                                                                src={booking.professionalId.profileImage.startsWith('http') || booking.professionalId.profileImage.startsWith('data:')
-                                                                    ? booking.professionalId.profileImage
-                                                                    : `/${booking.professionalId.profileImage.replace(/\\/g, '/')}`
-                                                                }
+                                                            <OptimizedImage
+                                                                src={booking.professionalId.profileImage}
                                                                 alt={booking.serviceProvider}
-                                                                className="w-full h-full object-cover"
-                                                                onError={(e) => {
-                                                                    e.target.style.display = 'none';
-                                                                    const fallback = document.createElement('span');
-                                                                    fallback.className = 'text-orange-600';
-                                                                    fallback.innerText = getInitials(booking.serviceProvider);
-                                                                    e.target.parentElement.appendChild(fallback);
-                                                                }}
+                                                                className="w-full h-full"
+                                                                fallbackIcon={User}
                                                             />
                                                         ) : (
                                                             <span className="text-orange-600">{getInitials(booking.serviceProvider)}</span>
@@ -785,9 +868,29 @@ export default function MyBookings() {
                                         <h3 className="text-xl font-black text-gray-900">Rate Your Experience</h3>
                                         <p className="text-sm text-gray-500 mt-0.5">with <span className="font-semibold text-gray-700">{reviewBooking.serviceProvider}</span></p>
                                     </div>
-                                    <button onClick={() => setShowReviewModal(false)} className="p-2 rounded-xl bg-gray-100 text-gray-400 hover:text-gray-700 transition">
-                                        <X size={20} />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        {reportedCustomers.includes(reviewBooking.userId) ? (
+                                            <div className="px-3 py-2 rounded-xl bg-gray-100 text-gray-400 flex items-center gap-1.5 cursor-not-allowed" title="Already reported">
+                                                <Flag size={16} />
+                                                <span className="text-xs font-bold">Reported</span>
+                                            </div>
+                                        ) : (
+                                            <button 
+                                                onClick={() => {
+                                                    setShowReviewModal(false);
+                                                    setIsReportModalOpen(true);
+                                                }}
+                                                className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition flex items-center gap-1.5"
+                                                title="Report Customer"
+                                            >
+                                                <Flag size={16} />
+                                                <span className="text-xs font-bold">Report</span>
+                                            </button>
+                                        )}
+                                        <button onClick={() => setShowReviewModal(false)} className="p-2 rounded-xl bg-gray-100 text-gray-400 hover:text-gray-700 transition">
+                                            <X size={20} />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <form onSubmit={handleSubmitReview} className="p-6 space-y-5">
@@ -853,6 +956,100 @@ export default function MyBookings() {
                                     </button>
                                 </form>
                             </>
+                        )}
+                    </div>
+                </div>
+            )}
+
+
+            {/* Report Customer Modal */}
+            {isReportModalOpen && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                    <div 
+                        onClick={() => setIsReportModalOpen(false)}
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                    />
+                    <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden z-10">
+                        {reportSuccess ? (
+                            <div className="p-12 text-center">
+                                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-600">
+                                    <Check size={40} />
+                                </div>
+                                <h3 className="text-2xl font-black text-slate-900 mb-2">Report Submitted</h3>
+                                <p className="text-slate-500 font-medium leading-relaxed">
+                                    Thank you for keeping our community safe. Our administrators will review your report shortly.
+                                </p>
+                            </div>
+                        ) : (
+                            <form onSubmit={handleReportCustomer} className="p-8">
+                                <div className="flex items-center justify-between mb-8">
+                                    <div>
+                                        <h3 className="text-xl font-black text-slate-900 tracking-tight">Report Customer</h3>
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Help us maintain quality</p>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsReportModalOpen(false)}
+                                        className="p-2 bg-slate-100 text-slate-400 hover:text-slate-900 rounded-xl transition-all"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Reason for Report</label>
+                                        <select 
+                                            required
+                                            value={reportReason}
+                                            onChange={(e) => setReportReason(e.target.value)}
+                                            className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-900 font-bold focus:ring-2 focus:ring-rose-500 transition-all outline-none"
+                                        >
+                                            <option value="">Select a reason</option>
+                                            <option value="Inappropriate Behavior">Inappropriate Behavior</option>
+                                            <option value="Late arrival">Late Arrival</option>
+                                            <option value="Poor service">Poor Service</option>
+                                            <option value="Overcharging">Overcharging</option>
+                                            <option value="Fraud/scam">Fraud/Scam</option>
+                                            <option value="Payment Issues">Payment Issues</option>
+                                            <option value="Harassment">Harassment</option>
+                                            <option value="Fake Booking">Fake Booking</option>
+                                            <option value="No Show">No Show</option>
+                                            <option value="Unreasonable Demands">Unreasonable Demands</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Detailed Description</label>
+                                        <textarea 
+                                            required
+                                            rows="4"
+                                            value={reportDescription}
+                                            onChange={(e) => setReportDescription(e.target.value)}
+                                            placeholder="Please provide more details about the issue..."
+                                            className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-900 font-medium focus:ring-2 focus:ring-rose-500 transition-all outline-none resize-none"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <button 
+                                            type="submit"
+                                            disabled={isReporting}
+                                            className="flex-1 py-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isReporting ? 'Submitting...' : 'Submit Report'}
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setIsReportModalOpen(false)}
+                                            className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
                         )}
                     </div>
                 </div>

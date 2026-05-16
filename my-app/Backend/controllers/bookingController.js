@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Booking from "../models/bookingModel.js";
 import Professional from "../models/professionalModel.js";
+import User from "../models/userModel.js";
+import { sendBookingConfirmation } from "../utils/emailService.js";
 
 /**
  * Create a new booking
@@ -39,14 +41,24 @@ export const createBooking = async (req, res) => {
       });
     }
 
-    // Check if user is trying to book themselves
+    // Check if user is trying to book themselves or a blocked professional
     if (professionalId) {
       const professional = await Professional.findById(professionalId);
-      if (professional && professional.userId && professional.userId.toString() === userId) {
-        return res.status(403).json({
-          success: false,
-          message: "You cannot book your own service"
-        });
+      if (professional) {
+        if (professional.userId && professional.userId.toString() === userId) {
+          return res.status(403).json({
+            success: false,
+            message: "You cannot book your own service"
+          });
+        }
+        
+        if (professional.isBlocked) {
+          const unlockDate = professional.blockedUntil ? new Date(professional.blockedUntil).toLocaleDateString() : 'soon';
+          return res.status(403).json({
+            success: false,
+            message: `This professional is temporarily suspended until ${unlockDate} and cannot accept new bookings.`
+          });
+        }
       }
     }
 
@@ -69,6 +81,29 @@ export const createBooking = async (req, res) => {
     });
 
     await booking.save();
+
+    // Send confirmation email
+    try {
+      const user = await User.findById(userId).select('email name');
+      let professionalName = serviceProvider;
+      if (professionalId) {
+        const professional = await Professional.findById(professionalId).select('firstName lastName');
+        if (professional) professionalName = `${professional.firstName} ${professional.lastName}`;
+      }
+      await sendBookingConfirmation({
+        to: user?.email,
+        professionalName,
+        bookingDate,
+        bookingTime: timeSchedule,
+        bookingId: booking._id
+      });
+    } catch (emailErr) {
+      console.error('Failed to send booking confirmation email:', emailErr);
+    }
+
+    
+
+    
 
     res.status(201).json({
       success: true,
@@ -184,6 +219,17 @@ export const updateBookingStatus = async (req, res) => {
     }
 
     const previousStatus = existingBooking.status;
+
+    // Check if professional is blocked when they try to accept a booking
+    if (status === "Confirmed") {
+      const professional = await Professional.findById(existingBooking.professionalId);
+      if (professional && professional.isBlocked) {
+        return res.status(403).json({
+          success: false,
+          message: "Your account is suspended. You cannot accept or confirm services at this time."
+        });
+      }
+    }
 
     const booking = await Booking.findByIdAndUpdate(
       id,
@@ -528,17 +574,17 @@ export const checkUserBookingStatus = async (req, res) => {
       });
     }
 
-    // Find any booking by this user for this professional with status 'Confirmed' or 'Completed'
+    // Find any booking by this user for this professional
     const bookings = await Booking.find({
       userId,
-      professionalId,
-      status: { $in: ["Confirmed", "Completed", "Pending"] }
+      professionalId
     });
 
     res.status(200).json({
       success: true,
       hasBooking: bookings.some(b => ["Confirmed", "Completed"].includes(b.status)),
-      hasPending: bookings.some(b => b.status === "Pending")
+      hasPending: bookings.some(b => b.status === "Pending"),
+      hasCompletedBooking: bookings.some(b => b.status === "Completed")
     });
   } catch (error) {
     console.error("Error checking user booking status:", error);

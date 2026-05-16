@@ -27,13 +27,17 @@ const reportSchema = new mongoose.Schema({
     enum: [
       'Inappropriate Behavior',
       'Unprofessional Service',
-      'Fraud or Scam',
+      'Fraud/scam',
       'Fake Profile',
-      'Late for Work',
-      'Poor Quality',
+      'Late arrival',
+      'Poor service',
       'Harassment',
       'Payment Issues',
+      'Overcharging',
       'Safety Concerns',
+      'Fake Booking',
+      'No Show',
+      'Unreasonable Demands',
       'Other'
     ]
   },
@@ -57,6 +61,12 @@ const reportSchema = new mongoose.Schema({
     type: String
   }
 });
+
+// Index for faster duplicate report checking
+reportSchema.index({ reporter: 1, target: 1, reporterModel: 1, targetModel: 1 });
+
+// Index for admin queries
+reportSchema.index({ status: 1, createdAt: -1 });
 
 const Report = mongoose.model('Report', reportSchema);
 export default Report;

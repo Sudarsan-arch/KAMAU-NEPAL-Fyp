@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Save, User, MapPin, DollarSign, Phone, Bio, Briefcase, Clock, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const SERVICE_CATEGORIES = [
   { value: 'plumbing', label: 'Plumbing' },
@@ -76,6 +77,7 @@ const EditProfileModal = ({ isOpen, onClose, professionalData, onUpdate }) => {
 
       if (response.data.success) {
         setSuccess(true);
+        toast.success('Profile updated successfully!');
         setTimeout(() => {
           onUpdate(response.data.data);
           onClose();
@@ -83,7 +85,9 @@ const EditProfileModal = ({ isOpen, onClose, professionalData, onUpdate }) => {
         }, 1500);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update profile');
+      const msg = err.response?.data?.message || 'Failed to update profile';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
